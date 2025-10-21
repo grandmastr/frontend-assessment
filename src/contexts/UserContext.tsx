@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 
+
 interface GlobalSettings {
   theme: string;
   locale: string;
