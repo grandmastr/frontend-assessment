@@ -1,61 +1,61 @@
 import {
-  Transaction,
   FilterOptions,
+  Transaction,
   TransactionSummary,
-} from "../types/transaction";
+} from '../types/transaction';
 
 const CATEGORIES = [
-  "Food & Dining",
-  "Shopping",
-  "Transportation",
-  "Entertainment",
-  "Bills & Utilities",
-  "Healthcare",
-  "Education",
-  "Travel",
-  "Business",
-  "Personal Care",
-  "Gifts & Donations",
-  "Investments",
-  "ATM & Banking",
-  "Auto & Transport",
-  "Home & Garden",
+  'Food & Dining',
+  'Shopping',
+  'Transportation',
+  'Entertainment',
+  'Bills & Utilities',
+  'Healthcare',
+  'Education',
+  'Travel',
+  'Business',
+  'Personal Care',
+  'Gifts & Donations',
+  'Investments',
+  'ATM & Banking',
+  'Auto & Transport',
+  'Home & Garden',
 ];
 
 const MERCHANTS = [
-  "Starbucks",
-  "Amazon",
-  "Walmart",
-  "Target",
+  'Starbucks',
+  'Amazon',
+  'Walmart',
+  'Target',
   "McDonald's",
-  "Shell",
-  "Netflix",
-  "Spotify",
-  "Uber",
-  "Lyft",
-  "Apple Store",
-  "Google Play",
-  "PayPal",
-  "Venmo",
-  "Square",
-  "Stripe",
-  "Bank of America",
-  "Chase",
-  "Wells Fargo",
-  "CitiBank",
+  'Shell',
+  'Netflix',
+  'Spotify',
+  'Uber',
+  'Lyft',
+  'Apple Store',
+  'Google Play',
+  'PayPal',
+  'Venmo',
+  'Square',
+  'Stripe',
+  'Bank of America',
+  'Chase',
+  'Wells Fargo',
+  'CitiBank',
 ];
 
 const LOCATIONS = [
-  "New York, NY",
-  "Los Angeles, CA",
-  "Chicago, IL",
-  "Houston, TX",
-  "Phoenix, AZ",
-  "Philadelphia, PA",
-  "San Antonio, TX",
-  "San Diego, CA",
-  "Dallas, TX",
-  "San Jose, CA",
+  'New York, NY',
+  'Los Angeles, CA',
+  'Chicago, IL',
+  'Houston, TX',
+  'Phoenix, AZ',
+  'Philadelphia, PA',
+  'San Antonio, TX',
+  'San Diego, CA',
+  'Dallas, TX',
+  'San Jose, CA',
 ];
 
 // Performance optimization: Global cache for transaction analytics
@@ -80,17 +80,17 @@ export function generateTransactionData(count: number): Transaction[] {
         Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000
       ),
       amount: adjustedAmount,
-      currency: "USD",
-      type: Math.random() > 0.6 ? "debit" : "credit",
+      currency: 'USD',
+      type: Math.random() > 0.6 ? 'debit' : 'credit',
       category: CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)],
       description: `Transaction ${i} - ${generateRandomDescription()}`,
       merchantName: MERCHANTS[Math.floor(Math.random() * MERCHANTS.length)],
       status:
         Math.random() > 0.1
-          ? "completed"
+          ? 'completed'
           : Math.random() > 0.5
-          ? "pending"
-          : "failed",
+            ? 'pending'
+            : 'failed',
       userId: `user_${Math.floor(Math.random() * 1000)}`,
       accountId: `acc_${Math.floor(Math.random() * 100)}`,
       location:
@@ -152,21 +152,21 @@ export function filterTransactions(
 ): Transaction[] {
   let filtered = [...transactions];
 
-  if (filters.type && filters.type !== "all") {
-    filtered = filtered.filter((t) => t.type === filters.type);
+  if (filters.type && filters.type !== 'all') {
+    filtered = filtered.filter(t => t.type === filters.type);
   }
 
   if (filters.category) {
-    filtered = filtered.filter((t) => t.category === filters.category);
+    filtered = filtered.filter(t => t.category === filters.category);
   }
 
-  if (filters.status && filters.status !== "all") {
-    filtered = filtered.filter((t) => t.status === filters.status);
+  if (filters.status && filters.status !== 'all') {
+    filtered = filtered.filter(t => t.status === filters.status);
   }
 
   if (filters.dateRange) {
     filtered = filtered.filter(
-      (t) =>
+      t =>
         t.timestamp >= filters.dateRange!.start &&
         t.timestamp <= filters.dateRange!.end
     );
@@ -174,7 +174,7 @@ export function filterTransactions(
 
   if (filters.amountRange) {
     filtered = filtered.filter(
-      (t) =>
+      t =>
         t.amount >= filters.amountRange!.min &&
         t.amount <= filters.amountRange!.max
     );
@@ -214,20 +214,20 @@ function calculateTransactionRisk(transactionIndex: number): number {
 
 function generateRandomDescription(): string {
   const actions = [
-    "Purchase",
-    "Payment",
-    "Transfer",
-    "Withdrawal",
-    "Deposit",
-    "Refund",
+    'Purchase',
+    'Payment',
+    'Transfer',
+    'Withdrawal',
+    'Deposit',
+    'Refund',
   ];
   const items = [
-    "Coffee",
-    "Groceries",
-    "Gas",
-    "Movie ticket",
-    "Subscription",
-    "ATM withdrawal",
+    'Coffee',
+    'Groceries',
+    'Gas',
+    'Movie ticket',
+    'Subscription',
+    'ATM withdrawal',
   ];
 
   return `${actions[Math.floor(Math.random() * actions.length)]} - ${
@@ -284,23 +284,23 @@ export function calculateSummary(
     categoryCounts: {} as Record<string, number>,
   };
 
-  transactions.forEach((t) => {
+  transactions.forEach(t => {
     summary.totalAmount += t.amount;
   });
 
-  transactions.forEach((t) => {
-    if (t.type === "credit") {
+  transactions.forEach(t => {
+    if (t.type === 'credit') {
       summary.totalCredits += t.amount;
     }
   });
 
-  transactions.forEach((t) => {
-    if (t.type === "debit") {
+  transactions.forEach(t => {
+    if (t.type === 'debit') {
       summary.totalDebits += t.amount;
     }
   });
 
-  transactions.forEach((t) => {
+  transactions.forEach(t => {
     if (summary.categoryCounts[t.category]) {
       summary.categoryCounts[t.category]++;
     } else {
