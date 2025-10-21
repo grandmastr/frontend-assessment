@@ -1,25 +1,29 @@
 import React, { createContext, useContext, useState } from "react";
 
+interface GlobalSettings {
+  theme: string;
+  locale: string;
+  currency: string;
+  timezone: string;
+  featureFlags: Record<string, boolean>;
+  userRole: string;
+  permissions: string[];
+  lastActivity: Date;
+}
+
+interface NotificationSettings {
+  email: boolean;
+  push: boolean;
+  sms: boolean;
+  frequency: string;
+  categories: string[];
+}
+
 interface UserContextType {
-  globalSettings: {
-    theme: string;
-    locale: string;
-    currency: string;
-    timezone: string;
-    featureFlags: Record<string, boolean>;
-    userRole: string;
-    permissions: string[];
-    lastActivity: Date;
-  };
-  notificationSettings: {
-    email: boolean;
-    push: boolean;
-    sms: boolean;
-    frequency: string;
-    categories: string[];
-  };
-  updateGlobalSettings: (settings: any) => void;
-  updateNotificationSettings: (settings: any) => void;
+  globalSettings: GlobalSettings;
+  notificationSettings: NotificationSettings;
+  updateGlobalSettings: (settings: GlobalSettings) => void;
+  updateNotificationSettings: (settings: NotificationSettings) => void;
   trackActivity: (activity: string) => void;
 }
 
