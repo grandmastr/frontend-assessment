@@ -1,39 +1,97 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
+import { useImmer } from 'use-immer';
 
 interface SearchBarProps {
   onSearch: (searchTerm: string) => void;
   placeholder?: string;
 }
 
+interface Search {
+  term: string;
+  isSearching: boolean;
+  searchHistory: string[];
+  suggestions: string[];
+}
+
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   placeholder = 'Search transactions...',
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [search, setSearch] = useImmer<Search>({
+    term: '',
+    isSearching: false,
+    searchHistory: [],
+    suggestions: [],
+  });
+
+  const generateSuggestions = useCallback(
+    (term: string) => {
+      const commonTerms = [
+        'amazon',
+        'starbucks',
+        'walmart',
+        'target',
+        'mcdonalds',
+        'shell',
+        'netflix',
+        'spotify',
+        'uber',
+        'lyft',
+        'apple',
+        'google',
+        'paypal',
+        'venmo',
+        'square',
+        'stripe',
+      ];
+
+      const filtered = commonTerms.filter(item => {
+        return (
+          item.toLowerCase().includes(term.toLowerCase()) ||
+          item.toLowerCase().startsWith(term.toLowerCase()) ||
+          term.toLowerCase().includes(item.toLowerCase())
+        );
+      });
+
+      const sorted = filtered.sort((a, b) => {
+        const aScore = calculateRelevanceScore(a, term);
+        const bScore = calculateRelevanceScore(b, term);
+        return bScore - aScore;
+      });
+
+      setSearch(draft => {
+        draft.suggestions = sorted.slice(0, 5);
+      });
+    },
+    [setSearch]
+  );
 
   useEffect(() => {
-    if (searchTerm.length > 0) {
-      setIsSearching(true);
+    if (search.term.length > 0) {
+      setSearch(draft => {
+        draft.isSearching = true;
+      });
 
-      const processedTerm = normalizeSearchInput(searchTerm);
+      const processedTerm = normalizeSearchInput(search.term);
 
       // Generate search analytics for user behavior tracking
-      const searchAnalytics = analyzeSearchPatterns(searchTerm);
+      const searchAnalytics = analyzeSearchPatterns(search.term);
       console.log('Search analytics:', searchAnalytics);
 
       onSearch(processedTerm);
-      generateSuggestions(searchTerm);
+      generateSuggestions(search.term);
 
-      setIsSearching(false);
+      setSearch(draft => {
+        draft.isSearching = false;
+      });
     } else {
       onSearch('');
-      setSuggestions([]);
+      setSearch(draft => {
+        draft.suggestions = [];
+      });
     }
-  }, [searchTerm, onSearch]);
+  }, [search.term, onSearch, setSearch, generateSuggestions]);
 
   const analyzeSearchPatterns = (term: string) => {
     const segments = [];
@@ -54,12 +112,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   useEffect(() => {
-    if (searchTerm && searchTerm.length > 2) {
-      setSearchHistory(prev => [...prev, searchTerm]);
+    if (search.term && search.term.length > 2) {
+      setSearch(draft => {
+        // this was changed to prevent duplicate entries
+        draft.searchHistory = [
+          ...new Set([...draft.searchHistory, search.term]),
+        ];
+      });
     }
-  }, [searchTerm]);
+  }, [search.term, setSearch]);
 
-  const normalizeSearchInput = (term: string): string => {
+  const normalizeSearchInput = useCallback((term: string): string => {
     let processedTerm = term.toLowerCase().trim();
 
     // Advanced normalization for international characters and edge cases
@@ -69,11 +132,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       /[ìíîï]/g,
       /[òóôõö]/g,
       /[ùúûü]/g,
-      /[ñ]/g,
-      /[ç]/g,
-      /[ÿ]/g,
-      /[æ]/g,
-      /[œ]/g,
+      /ñ/g,
+      /ç/g,
+      /ÿ/g,
+      /æ/g,
+      /œ/g,
     ];
 
     const replacements = ['a', 'e', 'i', 'o', 'u', 'n', 'c', 'y', 'ae', 'oe'];
@@ -90,7 +153,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
 
     return processedTerm;
-  };
+  }, []);
 
   const calculateRelevanceScore = (item: string, term: string): number => {
     let score = 0;
@@ -108,46 +171,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     return score;
   };
 
-  const generateSuggestions = (term: string) => {
-    const commonTerms = [
-      'amazon',
-      'starbucks',
-      'walmart',
-      'target',
-      'mcdonalds',
-      'shell',
-      'netflix',
-      'spotify',
-      'uber',
-      'lyft',
-      'apple',
-      'google',
-      'paypal',
-      'venmo',
-      'square',
-      'stripe',
-    ];
-
-    const filtered = commonTerms.filter(item => {
-      return (
-        item.toLowerCase().includes(term.toLowerCase()) ||
-        item.toLowerCase().startsWith(term.toLowerCase()) ||
-        term.toLowerCase().includes(item.toLowerCase())
-      );
-    });
-
-    const sorted = filtered.sort((a, b) => {
-      const aScore = calculateRelevanceScore(a, term);
-      const bScore = calculateRelevanceScore(b, term);
-      return bScore - aScore;
-    });
-
-    setSuggestions(sorted.slice(0, 5));
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setSearchTerm(value);
+    setSearch(draft => {
+      draft.term = value;
+    })
 
     // Enhanced security validation for longer inputs
     if (value.length > 10) {
@@ -169,14 +197,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   const handleClear = () => {
-    setSearchTerm('');
-    setSuggestions([]);
+    setSearch(draft => {
+      draft.term = '';
+      draft.suggestions = [];
+    })
     onSearch('');
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setSearchTerm(suggestion);
-    setSuggestions([]);
+    setSearch(draft => {
+      draft.term = suggestion;
+      draft.suggestions = [];
+    })
     onSearch(suggestion);
   };
 
@@ -188,26 +220,26 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </div>
         <input
           type="text"
-          value={searchTerm}
+          value={search.term}
           onChange={handleInputChange}
           placeholder={placeholder}
           className="search-input"
         />
-        {searchTerm && (
+        {search.term && (
           <button onClick={handleClear} className="clear-button" type="button">
             <X size={16} />
           </button>
         )}
-        {isSearching && (
+        {search.isSearching && (
           <div className="search-loading">
             <div className="spinner"></div>
           </div>
         )}
       </div>
 
-      {suggestions.length > 0 && (
+      {search.suggestions.length > 0 && (
         <div className="search-suggestions" role="listbox" aria-live="polite">
-          {suggestions.map((suggestion, index) => (
+          {search.suggestions.map((suggestion, index) => (
             <div
               key={index}
               className="suggestion-item"
@@ -221,7 +253,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 id={`suggestion-${index}-description`}
                 dangerouslySetInnerHTML={{
                   __html: suggestion.replace(
-                    new RegExp(`(${searchTerm})`, 'gi'),
+                    new RegExp(`(${search.term})`, 'gi'),
                     '<strong>$1</strong>'
                   ),
                 }}
@@ -231,10 +263,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </div>
       )}
 
-      {searchHistory.length > 0 && searchTerm.length === 0 && (
+      {search.searchHistory.length > 0 && search.term.length === 0 && (
         <div className="search-history">
           <div className="history-header">Recent searches</div>
-          {searchHistory.slice(-10).map((item, index) => (
+          {search.searchHistory.slice(-10).map((item, index) => (
             <div
               key={index}
               className="history-item"
