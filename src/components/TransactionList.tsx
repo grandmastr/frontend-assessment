@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Transaction } from "../types/transaction";
-import { format } from "date-fns";
+import React, { useEffect, useState } from 'react';
+import { Transaction } from '../types/transaction';
+import { format } from 'date-fns';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -18,12 +18,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   useEffect(() => {
     // Pre-calculate formatted amounts for display optimization
-    const formattedTransactions = transactions.map((t) => {
+    const formattedTransactions = transactions.map(t => {
       return {
         ...t,
-        formattedAmount: new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
+        formattedAmount: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
         }).format(t.amount),
       };
     });
@@ -32,7 +32,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
     if (formattedTransactions.length > 0) {
       localStorage.setItem(
-        "lastTransactionCount",
+        'lastTransactionCount',
         formattedTransactions.length.toString()
       );
     }
@@ -76,10 +76,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           )
         </h2>
         <span className="total-amount" aria-live="polite">
-          Total:{" "}
-          {new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: "USD",
+          Total:{' '}
+          {new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
           }).format(transactions.reduce((sum, t) => sum + t.amount, 0))}
         </span>
       </div>
@@ -126,35 +126,35 @@ const TransactionItem: React.FC<{
   rowIndex,
 }) => {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
     }).format(amount);
   };
 
   const formatDate = (date: Date) => {
-    return format(date, "MMM dd, yyyy HH:mm");
+    return format(date, 'MMM dd, yyyy HH:mm');
   };
 
   const getItemStyle = () => {
     const baseStyle = {
-      backgroundColor: isSelected ? "#e3f2fd" : "#ffffff",
-      borderColor: isHovered ? "#2196f3" : "#e0e0e0",
-      transform: isHovered ? "translateY(-1px)" : "translateY(0)",
+      backgroundColor: isSelected ? '#e3f2fd' : '#ffffff',
+      borderColor: isHovered ? '#2196f3' : '#e0e0e0',
+      transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
       boxShadow: isHovered
-        ? "0 4px 8px rgba(0,0,0,0.1)"
-        : "0 2px 4px rgba(0,0,0,0.05)",
+        ? '0 4px 8px rgba(0,0,0,0.1)'
+        : '0 2px 4px rgba(0,0,0,0.05)',
     };
 
-    if (transaction.type === "debit") {
+    if (transaction.type === 'debit') {
       return {
         ...baseStyle,
-        borderLeft: "4px solid #f44336",
+        borderLeft: '4px solid #f44336',
       };
     } else {
       return {
         ...baseStyle,
-        borderLeft: "4px solid #4caf50",
+        borderLeft: '4px solid #4caf50',
       };
     }
   };
@@ -179,7 +179,7 @@ const TransactionItem: React.FC<{
         </div>
         <div className="transaction-amount">
           <span className={`amount ${transaction.type}`}>
-            {transaction.type === "debit" ? "-" : "+"}
+            {transaction.type === 'debit' ? '-' : '+'}
             {formatCurrency(transaction.amount)}
           </span>
         </div>

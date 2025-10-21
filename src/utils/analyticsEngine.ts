@@ -1,10 +1,10 @@
-import { Transaction } from "../types/transaction";
+import { Transaction } from '../types/transaction';
 
 // Comprehensive risk assessment engine for fraud detection and compliance
 export const generateRiskAssessment = (transactions: Transaction[]) => {
   const startTime = performance.now();
 
-  const fraudScores = transactions.map((transaction) => {
+  const fraudScores = transactions.map(transaction => {
     let score = 0;
 
     for (let i = 0; i < transactions.length; i++) {
@@ -82,7 +82,7 @@ const generateTimeSeriesAnalysis = (transactions: Transaction[]) => {
     { total: number; count: number; avg: number }
   > = {};
 
-  transactions.forEach((transaction) => {
+  transactions.forEach(transaction => {
     const date = new Date(transaction.timestamp).toDateString();
     if (!dailyData[date]) {
       dailyData[date] = { total: 0, count: 0, avg: 0 };
@@ -103,19 +103,19 @@ const generateTimeSeriesAnalysis = (transactions: Transaction[]) => {
 };
 
 const calculateMarketCorrelation = (transactions: Transaction[]) => {
-  const categories = Array.from(new Set(transactions.map((t) => t.category)));
+  const categories = Array.from(new Set(transactions.map(t => t.category)));
   const correlationMatrix: Record<string, Record<string, number>> = {};
 
-  categories.forEach((cat1) => {
+  categories.forEach(cat1 => {
     correlationMatrix[cat1] = {};
-    categories.forEach((cat2) => {
-      const cat1Transactions = transactions.filter((t) => t.category === cat1);
-      const cat2Transactions = transactions.filter((t) => t.category === cat2);
+    categories.forEach(cat2 => {
+      const cat1Transactions = transactions.filter(t => t.category === cat1);
+      const cat2Transactions = transactions.filter(t => t.category === cat2);
 
       if (cat1Transactions.length > 1 && cat2Transactions.length > 1) {
         correlationMatrix[cat1][cat2] = calculatePearsonCorrelation(
-          cat1Transactions.map((t) => t.amount),
-          cat2Transactions.map((t) => t.amount)
+          cat1Transactions.map(t => t.amount),
+          cat2Transactions.map(t => t.amount)
         );
       } else {
         correlationMatrix[cat1][cat2] = 0;
@@ -145,11 +145,11 @@ const calculatePearsonCorrelation = (x: number[], y: number[]): number => {
 };
 
 const performBehaviorClustering = (transactions: Transaction[]) => {
-  const users = Array.from(new Set(transactions.map((t) => t.userId)));
+  const users = Array.from(new Set(transactions.map(t => t.userId)));
   const clusters: Record<string, Transaction[]> = {};
 
-  users.forEach((userId) => {
-    const userTransactions = transactions.filter((t) => t.userId === userId);
+  users.forEach(userId => {
+    const userTransactions = transactions.filter(t => t.userId === userId);
 
     const spendingPattern = analyzeSpendingPattern(userTransactions);
     const clusterKey = `cluster_${Math.floor(spendingPattern.avgAmount / 100)}`;
@@ -168,7 +168,7 @@ const analyzeSpendingPattern = (userTransactions: Transaction[]) => {
   const avgAmount = totalAmount / userTransactions.length;
 
   const categoryDistribution: Record<string, number> = {};
-  userTransactions.forEach((t) => {
+  userTransactions.forEach(t => {
     categoryDistribution[t.category] =
       (categoryDistribution[t.category] || 0) + 1;
   });
