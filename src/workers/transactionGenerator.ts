@@ -1,24 +1,6 @@
 import { Transaction, TransactionSummary } from '../types/transaction.ts';
-import { CATEGORIES, LOCATIONS, MERCHANTS } from '../utils/dataGenerator.ts';
+import { ACTIONS, CATEGORIES, ITEMS, LOCATIONS, MERCHANTS } from '../constants';
 import wait from '../helpers/wait.ts';
-
-const ACTIONS = [
-  'Purchase',
-  'Payment',
-  'Transfer',
-  'Withdrawal',
-  'Deposit',
-  'Refund',
-] as const;
-
-const ITEMS = [
-  'Coffee',
-  'Groceries',
-  'Gas',
-  'Movie ticket',
-  'Subscription',
-  'ATM withdrawal',
-] as const;
 
 type GeneratorRequest =
   | { type: 'init'; total: number; batchSize?: number }
@@ -38,9 +20,7 @@ type GeneratorResponse =
     };
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-
 const BATCH_SIZE = 500;
-
 const SEED_COUNT = 200;
 
 let killGeneration = false;
@@ -70,7 +50,15 @@ self.addEventListener(
       summary: calculateSummary(initialData),
     } satisfies GeneratorResponse);
 
-    if (initialData.length >= targetSize) return;
+    if (initialData.length >= targetSize) {
+      self.postMessage({
+        type: 'batch',
+        transactions: [],
+        summaryDelta: calculateSummary([]),
+        done: true,
+      } satisfies GeneratorResponse);
+      return;
+    }
 
     await scheduleNextBatch(initialData.length, targetSize, batchSize);
   }

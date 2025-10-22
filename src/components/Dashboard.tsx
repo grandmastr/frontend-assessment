@@ -1,22 +1,24 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   FilterOptions,
   Transaction,
   TransactionSummary,
 } from '../types/transaction';
-import {
-  calculateSummary,
-  filterTransactions,
-  searchTransactions,
-} from '../utils/dataGenerator';
 import { TransactionList } from './TransactionList';
 import { SearchBar } from './SearchBar';
+import { Stats } from './Stats.tsx';
 import { useUserContext } from '../contexts/UserContext';
-import { Clock, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   GeneratorRequest,
   GeneratorResponse,
 } from '../workers/transactionGenerator.ts';
+import wait from '../helpers/wait';
 
 type AnalyticsSummary = {
   totalRisk: number;
@@ -35,31 +37,18 @@ type AnalyticsWorkerRequest =
 
 const MIN_ANALYTICS_SIZE = 500;
 const ANALYTICS_DEBOUNCE_MS = 250;
+const INITIAL_TOTAL = 10000;
+const STREAM_BATCH_TOTAL = 200;
 
-const mergeSummaries = (
-  current: TransactionSummary | null,
-  delta: TransactionSummary
-): TransactionSummary => {
-  if (!current) {
-    return delta;
-  }
-
-  return {
-    totalTransactions: current.totalTransactions + delta.totalTransactions,
-    totalAmount: current.totalAmount + delta.totalAmount,
-    totalCredits: current.totalCredits + delta.totalCredits,
-    totalDebits: current.totalDebits + delta.totalDebits,
-    avgTransactionAmount:
-      (current.totalAmount + delta.totalAmount) /
-      (current.totalTransactions + delta.totalTransactions || 1),
-    categoryCounts: Object.entries(delta.categoryCounts).reduce(
-      (acc, [category, count]) => {
-        acc[category] = (current.categoryCounts[category] ?? 0) + count;
-        return acc;
-      },
-      { ...current.categoryCounts }
-    ),
-  };
+const transactionMatchesSearch = (transaction: Transaction, term: string) => {
+  const lowerTerm = term.toLowerCase();
+  return (
+    transaction.description.toLowerCase().includes(lowerTerm) ||
+    transaction.merchantName.toLowerCase().includes(lowerTerm) ||
+    transaction.category.toLowerCase().includes(lowerTerm) ||
+    transaction.id.toLowerCase().includes(lowerTerm) ||
+    transaction.amount.toString().includes(lowerTerm)
+  );
 };
 
 export const Dashboard: React.FC = () => {
@@ -69,12 +58,8 @@ export const Dashboard: React.FC = () => {
   const analyticsWorkerRef = useRef<Worker | null>(null);
   const analyticsTimeoutRef = useRef<number | null>(null);
 
-  const transactionsRef = useRef<Transaction[]>([]);
-
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<
-    Transaction[]
-  >([]);
+  const [filteredIds, setFilteredIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterOptions>({
@@ -86,6 +71,7 @@ export const Dashboard: React.FC = () => {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<number>(10000);
   const [userPreferences, setUserPreferences] = useState({
     theme: globalSettings.theme,
     currency: globalSettings.currency,
@@ -102,8 +88,36 @@ export const Dashboard: React.FC = () => {
     null
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const isAnalyzingRef = useRef(isAnalyzing);
+  useEffect(() => {
+    isAnalyzingRef.current = isAnalyzing;
+  }, [isAnalyzing]);
+
+  const actualRefreshRate = refreshInterval || 10000;
+
+  if (import.meta.env.DEV) {
+    console.log('Refresh rate configured:', actualRefreshRate);
+  }
+
+  const refreshControls = {
+    currentRate: refreshInterval,
+    updateRate: setRefreshInterval,
+    isActive: actualRefreshRate > 0,
+  };
+
+  if (typeof window !== 'undefined') {
+    (
+      window as { dashboardControls?: typeof refreshControls }
+    ).dashboardControls = refreshControls;
+  }
+
+  const pendingBatchRef = useRef(false);
+  const scheduleNextBatchRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    let cancelled = false;
+    let hasLoadedOnce = false;
+
     const worker = new Worker(
       new URL('../workers/transactionGenerator.ts', import.meta.url),
       {
@@ -113,46 +127,78 @@ export const Dashboard: React.FC = () => {
 
     workerRef.current = worker;
 
+    const queueGeneratorJob = (total: number) => {
+      worker.postMessage({
+        type: 'init',
+        total,
+        batchSize: STREAM_BATCH_TOTAL,
+      } satisfies GeneratorRequest);
+    };
+
+    const scheduleNextBatch = async () => {
+      if (cancelled) return;
+      await wait(actualRefreshRate);
+      if (!cancelled) {
+        queueGeneratorJob(STREAM_BATCH_TOTAL);
+      }
+    };
+    scheduleNextBatchRef.current = () => {
+      void scheduleNextBatch();
+    };
+
     const handleMessage = (event: MessageEvent<GeneratorResponse>) => {
       const payload = event.data;
 
+      const nextTransactions = payload?.transactions ?? [];
+
       if (payload.type === 'seed') {
-        transactionsRef.current = payload.transactions;
-        setTransactions(payload.transactions);
-        setSummary(payload.summary);
-        setLoading(false);
+        setTransactions(prev =>
+          hasLoadedOnce ? prev.concat(nextTransactions) : nextTransactions
+        );
+
+        if (!hasLoadedOnce) {
+          setSummary(payload.summary);
+          setLoading(false);
+          hasLoadedOnce = true;
+        }
+
         return;
       }
 
-      transactionsRef.current = [
-        ...transactionsRef.current,
-        ...payload.transactions,
-      ];
+      if (nextTransactions.length > 0) {
+        setTransactions(prev => prev.concat(nextTransactions));
+      }
 
-      setTransactions([...transactionsRef.current]);
-      setSummary(prev => mergeSummaries(prev, payload.summaryDelta));
-
-      if (payload.done) {
+      if (!hasLoadedOnce) {
         setLoading(false);
+        hasLoadedOnce = true;
+      }
+
+      if (payload?.done && nextTransactions.length === 0) {
+        if (isAnalyzingRef.current) {
+          pendingBatchRef.current = true;
+        } else {
+          void scheduleNextBatch();
+        }
       }
     };
 
     worker.addEventListener('message', handleMessage);
-    worker.postMessage(
-      { type: 'init', total: 10000, batchSize: 500 } satisfies GeneratorRequest
-    );
+    queueGeneratorJob(INITIAL_TOTAL);
 
     return () => {
+      cancelled = true;
       worker.removeEventListener('message', handleMessage);
       worker.postMessage({ type: 'kill' } satisfies GeneratorRequest);
       worker.terminate();
       workerRef.current = null;
+      scheduleNextBatchRef.current = () => {};
     };
-  }, []);
+  }, [actualRefreshRate]);
 
   useEffect(() => {
     const worker = new Worker(
-      new URL('../workers/analytics.worker.ts', import.meta.url),
+      new URL('../workers/analytics.ts', import.meta.url),
       {
         type: 'module',
       }
@@ -168,6 +214,10 @@ export const Dashboard: React.FC = () => {
 
       setRiskAnalytics(payload.summary);
       setIsAnalyzing(false);
+      if (pendingBatchRef.current) {
+        pendingBatchRef.current = false;
+        scheduleNextBatchRef.current();
+      }
     };
 
     worker.addEventListener('message', handleMessage);
@@ -182,33 +232,53 @@ export const Dashboard: React.FC = () => {
 
   const applyFilters = useCallback(
     (source: Transaction[], currentFilters: FilterOptions, search: string) => {
-      let filtered = [...source];
+      const lowerSearch = search.trim().toLowerCase();
+      const nextIds: number[] = [];
+      const limit = userPreferences.compactView
+        ? userPreferences.itemsPerPage
+        : Number.POSITIVE_INFINITY;
 
-      if (search && search.length > 0) {
-        filtered = searchTransactions(filtered, search);
+      for (let index = 0; index < source.length; index += 1) {
+        const transaction = source[index];
+
+        if (
+          lowerSearch &&
+          !transactionMatchesSearch(transaction, lowerSearch)
+        ) {
+          continue;
+        }
+
+        if (
+          currentFilters.type &&
+          currentFilters.type !== 'all' &&
+          transaction.type !== currentFilters.type
+        ) {
+          continue;
+        }
+
+        if (
+          currentFilters.status &&
+          currentFilters.status !== 'all' &&
+          transaction.status !== currentFilters.status
+        ) {
+          continue;
+        }
+
+        if (
+          currentFilters.category &&
+          transaction.category !== currentFilters.category
+        ) {
+          continue;
+        }
+
+        nextIds.push(index);
+
+        if (nextIds.length >= limit) {
+          break;
+        }
       }
 
-      if (currentFilters.type && currentFilters.type !== 'all') {
-        filtered = filterTransactions(filtered, { type: currentFilters.type });
-      }
-
-      if (currentFilters.status && currentFilters.status !== 'all') {
-        filtered = filterTransactions(filtered, {
-          status: currentFilters.status,
-        });
-      }
-
-      if (currentFilters.category) {
-        filtered = filterTransactions(filtered, {
-          category: currentFilters.category,
-        });
-      }
-
-      if (userPreferences.compactView) {
-        filtered = filtered.slice(0, userPreferences.itemsPerPage);
-      }
-
-      setFilteredTransactions(filtered);
+      setFilteredIds(nextIds);
       setUserPreferences(prev => ({
         ...prev,
         timestamps: { ...prev.timestamps, updated: Date.now() },
@@ -221,14 +291,13 @@ export const Dashboard: React.FC = () => {
     applyFilters(transactions, filters, searchTerm);
   }, [transactions, filters, searchTerm, applyFilters]);
 
-  useEffect(() => {
-    if (filteredTransactions.length === 0) {
-      setSummary(null);
-      return;
-    }
-
-    setSummary(calculateSummary(filteredTransactions));
-  }, [filteredTransactions]);
+  const filteredTransactions = useMemo(
+    () =>
+      filteredIds
+        .map(id => transactions[id])
+        .filter((txn): txn is Transaction => Boolean(txn)),
+    [filteredIds, transactions]
+  );
 
   useEffect(() => {
     if (!analyticsWorkerRef.current) {
@@ -241,9 +310,9 @@ export const Dashboard: React.FC = () => {
     }
 
     if (filteredTransactions.length < MIN_ANALYTICS_SIZE) {
-      analyticsWorkerRef.current.postMessage(
-        { type: 'cancel' } satisfies AnalyticsWorkerRequest
-      );
+      analyticsWorkerRef.current.postMessage({
+        type: 'cancel',
+      } satisfies AnalyticsWorkerRequest);
       setRiskAnalytics(null);
       setIsAnalyzing(false);
       return;
@@ -252,18 +321,20 @@ export const Dashboard: React.FC = () => {
     setIsAnalyzing(true);
 
     analyticsTimeoutRef.current = window.setTimeout(() => {
-      analyticsWorkerRef.current?.postMessage(
-        {
-          type: 'analyze',
-          transactions: filteredTransactions,
-        } satisfies AnalyticsWorkerRequest
-      );
+      analyticsWorkerRef.current?.postMessage({
+        type: 'analyze',
+        transactions: filteredTransactions,
+      } satisfies AnalyticsWorkerRequest);
     }, ANALYTICS_DEBOUNCE_MS);
 
     return () => {
       if (analyticsTimeoutRef.current) {
         window.clearTimeout(analyticsTimeoutRef.current);
         analyticsTimeoutRef.current = null;
+        analyticsWorkerRef.current?.postMessage({
+          type: 'cancel',
+        } satisfies AnalyticsWorkerRequest);
+        setIsAnalyzing(false);
       }
     };
   }, [filteredTransactions]);
@@ -280,12 +351,9 @@ export const Dashboard: React.FC = () => {
     (value: string) => {
       setSearchTerm(value);
       trackActivity(`search:${value}`);
-
-      const searchResults = searchTransactions(transactions, value);
-      const filtered = filterTransactions(searchResults, filters);
-      setFilteredTransactions(filtered);
+      applyFilters(transactions, filters, value);
     },
-    [filters, trackActivity, transactions]
+    [applyFilters, filters, trackActivity, transactions]
   );
 
   const handleFilterChange = useCallback(
@@ -348,70 +416,13 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>FinTech Dashboard</h1>
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <div className="stat-icon">
-              <DollarSign size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-value">
-                ${summary ? summary.totalAmount.toLocaleString() : '0'}
-              </div>
-              <div className="stat-label">Total Amount</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon">
-              <TrendingUp size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-value">
-                ${summary ? summary.totalCredits.toLocaleString() : '0'}
-              </div>
-              <div className="stat-label">Total Credits</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon">
-              <TrendingDown size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-value">
-                ${summary ? summary.totalDebits.toLocaleString() : '0'}
-              </div>
-              <div className="stat-label">Total Debits</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon">
-              <Clock size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-value">
-                {filteredTransactions.length.toLocaleString()}
-                {filteredTransactions.length !== transactions.length && (
-                  <span className="stat-total">
-                    {' '}
-                    of {transactions.length.toLocaleString()}
-                  </span>
-                )}
-              </div>
-              <div className="stat-label">
-                Transactions
-                {isAnalyzing && <span> (Analyzing...)</span>}
-                {riskAnalytics && (
-                  <span> - Risk: {riskAnalytics.highRiskTransactions}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Stats
+        isAnalyzing={isAnalyzing}
+        summary={summary}
+        filteredTransactions={filteredTransactions}
+        txnCount={transactions.length}
+        highRiskTransactions={riskAnalytics?.highRiskTransactions}
+      />
 
       <div className="dashboard-controls">
         <SearchBar onSearch={handleSearch} />
@@ -468,7 +479,7 @@ export const Dashboard: React.FC = () => {
 
       <div className="dashboard-content">
         <TransactionList
-          transactions={filteredTransactions}
+          transactions={filteredIds.map(id => transactions[id])}
           totalTransactions={transactions.length}
           onTransactionClick={handleTransactionClick}
         />
