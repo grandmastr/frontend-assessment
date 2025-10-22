@@ -200,7 +200,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           style={{
             height: Math.max(
               ROW_HEIGHT,
-              Math.min(MAX_LIST_HEIGHT, sortedTransactions.length * ROW_HEIGHT)
+              Math.min(
+                MAX_LIST_HEIGHT,
+                sortedTransactions.length * ROW_HEIGHT
+              )
             ),
             width: '100%',
             boxSizing: 'border-box'
@@ -246,6 +249,8 @@ const TransactionItem: React.FC<{
     const baseStyle = {
       backgroundColor: isSelected ? '#e3f2fd' : '#ffffff',
       borderColor: isHovered ? '#2196f3' : '#e0e0e0',
+      borderLeftWidth: 4,
+      borderLeftStyle: 'solid' as const,
       boxShadow: isHovered
         ? '0 4px 8px rgba(0,0,0,0.1)'
         : '0 2px 4px rgba(0,0,0,0.05)',
@@ -256,13 +261,13 @@ const TransactionItem: React.FC<{
     if (transaction.type === 'debit') {
       return {
         ...baseStyle,
-        borderLeft: '4px solid #f44336',
+        borderLeftColor: '#f44336',
       };
     }
 
     return {
       ...baseStyle,
-      borderLeft: '4px solid #4caf50',
+      borderLeftColor: '#4caf50',
     };
   };
 
