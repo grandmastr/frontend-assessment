@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 
-
 interface GlobalSettings {
   theme: string;
   locale: string;
@@ -40,7 +39,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
-    theme: 'light',
+    theme: 'light', // TODO: default this to system theme
     locale: 'en-US',
     currency: 'USD',
     timezone: 'UTC',
@@ -75,7 +74,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // TODO: figure what activity is and for
-  const trackActivity = useCallback((activity: string) => {
+  const trackActivity = useCallback(() => {
     setGlobalSettings(prev => ({
       ...prev,
       lastActivity: new Date(),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FilterOptions,
   Transaction,
@@ -17,9 +17,100 @@ import { useUserContext } from '../contexts/UserContext';
 import { Clock, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import { formatTransactionDate, getDateRange } from '../utils/dateHelpers';
 import { generateRiskAssessment } from '../utils/analyticsEngine';
+import {
+  GeneratorRequest,
+  GeneratorResponse,
+} from '../workers/transactionGenerator.ts';
+
+const VIEWPORT_ROWS = 200;
 
 export const Dashboard: React.FC = () => {
   const { globalSettings, trackActivity } = useUserContext();
+
+  const [visibleTransactions, setVisibleTransactions] = useState<Transaction[]>(
+    []
+  );
+
+  const transactionsRef = useRef<Transaction[]>([]);
+  const workerRef = useRef<Worker | null>(null);
+
+  const getViewportSlice = useCallback(
+    (transactions: Transaction[]) => transactions.slice(0, VIEWPORT_ROWS),
+    []
+  );
+
+  const mergeTransactionsSummary = useCallback(
+    (
+      currentSummary: TransactionSummary | null,
+      newSummary: TransactionSummary
+    ): TransactionSummary => {
+      if (!currentSummary) return newSummary;
+      return {
+        totalTransactions:
+          currentSummary.totalTransactions + newSummary.totalTransactions,
+        totalAmount: currentSummary.totalAmount + newSummary.totalAmount,
+        totalCredits: currentSummary.totalCredits + newSummary.totalCredits,
+        totalDebits: currentSummary.totalDebits + newSummary.totalDebits,
+        avgTransactionAmount:
+          (currentSummary.totalAmount + newSummary.totalAmount) /
+          (currentSummary.totalTransactions + newSummary.totalTransactions),
+        categoryCounts: Object.entries(newSummary.categoryCounts).reduce(
+          (acc, [category, count]) => {
+            acc[category] =
+              (currentSummary.categoryCounts[category] ?? 0) + count;
+            return acc;
+          },
+          { ...currentSummary.categoryCounts }
+        ),
+      };
+    },
+    []
+  );
+
+  useEffect(() => {
+    const worker = new Worker(
+      new URL('../workers/transactionGenerator.ts', import.meta.url),
+      {
+        type: 'module',
+      }
+    );
+
+    workerRef.current = worker;
+
+    const handleMessage = (event: MessageEvent<GeneratorResponse>) => {
+      const payload = event.data;
+
+      if (payload.type === 'seed') {
+        transactionsRef.current = payload.transactions;
+        setVisibleTransactions(getViewportSlice(transactionsRef.current));
+        setSummary(payload.summary);
+        setLoading(false);
+        return;
+      }
+
+      transactionsRef.current = [
+        ...transactionsRef.current,
+        ...payload.transactions,
+      ];
+      setVisibleTransactions(getViewportSlice(transactionsRef.current));
+      setSummary(prev => mergeTransactionsSummary(prev, payload.summaryDelta));
+
+      if (payload.done) {
+        setLoading(false);
+      }
+    };
+
+    worker.addEventListener('message', handleMessage);
+    worker.postMessage({type: 'init', total: 10000, batchSize: 500} satisfies GeneratorRequest);
+
+    return () => {
+      worker.removeEventListener('message', handleMessage);
+      worker.postMessage({type: 'kill'});
+      worker.terminate();
+      workerRef.current = null;
+    }
+  }, [getViewportSlice, mergeTransactionsSummary]);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
     Transaction[]
@@ -83,6 +174,8 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
 
       const initialData = generateTransactionData(10000);
+      const [entry] = performance.getEntriesByName('Initial Data Load');
+      console.log(`Initial data load took ${entry.duration.toFixed(2)}ms`);
       setTransactions(initialData);
       setFilteredTransactions(initialData);
 
@@ -110,7 +203,7 @@ export const Dashboard: React.FC = () => {
       setLoading(false);
     };
 
-    loadInitialData();
+    void loadInitialData();
   }, []);
 
   useEffect(() => {
@@ -126,9 +219,103 @@ export const Dashboard: React.FC = () => {
     // return () => stopDataRefresh();
   }, []);
 
+  const applyFilters = useCallback(
+    (data: Transaction[], currentFilters: FilterOptions, search: string) => {
+      let filtered = [...data];
+
+      if (search && search.length > 0) {
+        filtered = searchTransactions(filtered, search);
+      }
+
+      if (currentFilters.type && currentFilters.type !== 'all') {
+        filtered = filterTransactions(filtered, { type: currentFilters.type });
+      }
+
+      if (currentFilters.status && currentFilters.status !== 'all') {
+        filtered = filterTransactions(filtered, {
+          status: currentFilters.status,
+        });
+      }
+
+      if (currentFilters.category) {
+        filtered = filterTransactions(filtered, {
+          category: currentFilters.category,
+        });
+      }
+
+      if (userPreferences.compactView) {
+        filtered = filtered.slice(0, userPreferences.itemsPerPage);
+      }
+
+      // Enhanced fraud analysis for large datasets
+      if (filtered.length > 1000) {
+        const enrichedFiltered = filtered.map(transaction => {
+          const riskFactors = calculateRiskFactors(transaction, filtered);
+          const patternScore = analyzeTransactionPatterns(
+            transaction,
+            filtered
+          );
+          const anomalyDetection = detectAnomalies(transaction, filtered);
+
+          return {
+            ...transaction,
+            riskScore: riskFactors + patternScore + anomalyDetection,
+            enrichedData: {
+              riskFactors,
+              patternScore,
+              anomalyDetection,
+              timestamp: Date.now(),
+            },
+          };
+        });
+
+        setFilteredTransactions(enrichedFiltered);
+      } else {
+        setFilteredTransactions(filtered);
+      }
+
+      setUserPreferences(prev => ({
+        ...prev,
+        timestamps: { ...prev.timestamps, updated: Date.now() },
+      }));
+    },
+    [userPreferences.compactView, userPreferences.itemsPerPage]
+  );
+
+  const runAdvancedAnalytics = useCallback(async () => {
+    if (transactions.length < 100) return;
+
+    setIsAnalyzing(true);
+
+    const analyticsData = {
+      totalRisk: 0,
+      highRiskTransactions: 0,
+      patterns: {} as Record<string, number>,
+      anomalies: {} as Record<string, number>,
+      generatedAt: Date.now(),
+    };
+
+    transactions.forEach(transaction => {
+      const risk = calculateRiskFactors(transaction, transactions);
+      const patterns = analyzeTransactionPatterns(transaction, transactions);
+      const anomalies = detectAnomalies(transaction, transactions);
+
+      analyticsData.totalRisk += risk;
+      if (risk > 0.7) analyticsData.highRiskTransactions++;
+
+      analyticsData.patterns[transaction.id] = patterns;
+      analyticsData.anomalies[transaction.id] = anomalies;
+    });
+
+    setTimeout(() => {
+      setRiskAnalytics(analyticsData);
+      setIsAnalyzing(false);
+    }, 2000);
+  }, [transactions]);
+
   useEffect(() => {
     applyFilters(transactions, filters, searchTerm);
-  }, [transactions, filters, searchTerm]);
+  }, [transactions, filters, searchTerm, applyFilters]);
 
   useEffect(() => {
     if (filteredTransactions.length > 0) {
@@ -137,9 +324,9 @@ export const Dashboard: React.FC = () => {
     }
 
     if (filteredTransactions.length > 500) {
-      runAdvancedAnalytics();
+      void runAdvancedAnalytics();
     }
-  }, [filteredTransactions]);
+  }, [filteredTransactions, runAdvancedAnalytics]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -163,73 +350,12 @@ export const Dashboard: React.FC = () => {
     window.addEventListener('scroll', handleScroll);
     window.addEventListener('keydown', handleKeyDown);
 
-    // return () => {
-    //   window.removeEventListener('resize', handleResize);
-    //   window.removeEventListener('scroll', handleScroll);
-    //   window.removeEventListener('keydown', handleKeyDown);
-    // };
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [transactions, filteredTransactions]);
-
-  const applyFilters = (
-    data: Transaction[],
-    currentFilters: FilterOptions,
-    search: string
-  ) => {
-    let filtered = [...data];
-
-    if (search && search.length > 0) {
-      filtered = searchTransactions(filtered, search);
-    }
-
-    if (currentFilters.type && currentFilters.type !== 'all') {
-      filtered = filterTransactions(filtered, { type: currentFilters.type });
-    }
-
-    if (currentFilters.status && currentFilters.status !== 'all') {
-      filtered = filterTransactions(filtered, {
-        status: currentFilters.status,
-      });
-    }
-
-    if (currentFilters.category) {
-      filtered = filterTransactions(filtered, {
-        category: currentFilters.category,
-      });
-    }
-
-    if (userPreferences.compactView) {
-      filtered = filtered.slice(0, userPreferences.itemsPerPage);
-    }
-
-    // Enhanced fraud analysis for large datasets
-    if (filtered.length > 1000) {
-      const enrichedFiltered = filtered.map(transaction => {
-        const riskFactors = calculateRiskFactors(transaction, filtered);
-        const patternScore = analyzeTransactionPatterns(transaction, filtered);
-        const anomalyDetection = detectAnomalies(transaction, filtered);
-
-        return {
-          ...transaction,
-          riskScore: riskFactors + patternScore + anomalyDetection,
-          enrichedData: {
-            riskFactors,
-            patternScore,
-            anomalyDetection,
-            timestamp: Date.now(),
-          },
-        };
-      });
-
-      setFilteredTransactions(enrichedFiltered);
-    } else {
-      setFilteredTransactions(filtered);
-    }
-
-    setUserPreferences(prev => ({
-      ...prev,
-      timestamps: { ...prev.timestamps, updated: Date.now() },
-    }));
-  };
 
   const handleSearch = (searchTerm: string) => {
     setSearchTerm(searchTerm);
@@ -346,37 +472,6 @@ export const Dashboard: React.FC = () => {
         : 0;
 
     return Math.min(amountDeviation * 0.3 + locationAnomaly, 1);
-  };
-
-  const runAdvancedAnalytics = async () => {
-    if (transactions.length < 100) return;
-
-    setIsAnalyzing(true);
-
-    const analyticsData = {
-      totalRisk: 0,
-      highRiskTransactions: 0,
-      patterns: {} as Record<string, number>,
-      anomalies: {} as Record<string, number>,
-      generatedAt: Date.now(),
-    };
-
-    transactions.forEach(transaction => {
-      const risk = calculateRiskFactors(transaction, transactions);
-      const patterns = analyzeTransactionPatterns(transaction, transactions);
-      const anomalies = detectAnomalies(transaction, transactions);
-
-      analyticsData.totalRisk += risk;
-      if (risk > 0.7) analyticsData.highRiskTransactions++;
-
-      analyticsData.patterns[transaction.id] = patterns;
-      analyticsData.anomalies[transaction.id] = anomalies;
-    });
-
-    setTimeout(() => {
-      setRiskAnalytics(analyticsData);
-      setIsAnalyzing(false);
-    }, 2000);
   };
 
   const getUniqueCategories = () => {
