@@ -18,9 +18,7 @@ export const Stats = ({
   highRiskTransactions = 0,
 }: StatsProps): React.ReactElement => {
   return (
-    <div className="dashboard-header">
-      <h1>FinTech Dashboard</h1>
-      <div className="dashboard-stats">
+    <div className="dashboard-stats">
         <div className="stat-card">
           <div className="stat-icon">
             <DollarSign size={24} />
@@ -81,6 +79,5 @@ export const Stats = ({
           </div>
         </div>
       </div>
-    </div>
   );
 };
