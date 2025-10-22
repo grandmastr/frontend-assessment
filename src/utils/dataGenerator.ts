@@ -4,7 +4,7 @@ import {
   TransactionSummary,
 } from '../types/transaction';
 
-const CATEGORIES = [
+export const CATEGORIES = [
   'Food & Dining',
   'Shopping',
   'Transportation',
@@ -22,7 +22,7 @@ const CATEGORIES = [
   'Home & Garden',
 ];
 
-const MERCHANTS = [
+export const MERCHANTS = [
   'Starbucks',
   'Amazon',
   'Walmart',
@@ -45,7 +45,7 @@ const MERCHANTS = [
   'CitiBank',
 ];
 
-const LOCATIONS = [
+export const LOCATIONS = [
   'New York, NY',
   'Los Angeles, CA',
   'Chicago, IL',
