@@ -6,7 +6,7 @@ export const debounce = <This, Args>(
   func: (this: This, ...args: Args[]) => void,
   ms: number
 ) => {
-  let timer: number | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
   return function (this: This, ...args: Args[]) {
     if (timer) clearTimeout(timer);

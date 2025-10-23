@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { SearchBar } from '../../components/SearchBar';
+import { SearchBar } from '../../components/search/SearchBar.tsx';
 
 const renderSearchBar = (onSearch = vi.fn()) => {
   const utils = render(<SearchBar onSearch={onSearch} />);

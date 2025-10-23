@@ -1,0 +1,108 @@
+:root {
+    /* color */
+    --color-bg: #ffffff;
+    --color-fg: #1a1a1a;
+    --color-muted: #6b7280;
+    --color-muted-light: #9ca3af;
+    --color-border: #e5e7eb;
+    --color-focus: #3b82f6;
+    --color-hover: #f9fafb;
+    --color-accent: #3b82f6;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-content-bg: #ffffff;
+
+    /* spacing */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 28px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+
+    /* typo */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --text-xs: 11px;
+    --text-sm: 13px;
+    --text-md: 15px;
+    --text-lg: 17px;
+    --text-xl: 19px;
+    --text-2xl: 24px;
+    --line-tight: 1.3;
+    --line-sm: 1.35;
+    --line-md: 1.4;
+    --line-normal: 1.5;
+
+    /* border radius */
+    --radius: 6px;
+    --radius-sm: 4px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --radius-1: 2px;
+
+    /* layout */
+    --max-width: 1200px;
+    --header-height: 60px;
+    --filter-height: 48px;
+
+    --focus-ring: 0 0 0 2px var(--color-focus);
+    --focus-ring-offset: 2px;
+    --transition: 150ms ease;
+    --transition-medium: 100ms ease;
+    --transition-fast: 75ms ease;
+
+    /* shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+    --shadow-focus: 0 0 0 3px rgba(33, 150, 243, 0.1);
+
+    /* status colors */
+    --color-status-success-bg: #e8f5e8;
+    --color-status-success-text: #2e7d32;
+    --color-status-warning-bg: #fff3e0;
+    --color-status-warning-text: #f57c00;
+    --color-status-error-bg: #ffebee;
+    --color-status-error-text: #c62828;
+
+    --z-dropdown: 1000;
+    --z-modal: 1100;
+}
+
+/* breakpoints */
+@media (max-width: 768px) {
+    :root {
+        --space-1: 3px;
+        --space-2: 6px;
+        --space-3: 9px;
+        --space-4: 12px;
+        --space-6: 18px;
+        --space-8: 24px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --transition: 0ms;
+    }
+}
+
+@media (forced-colors: active) {
+    :root {
+        --color-bg: Canvas;
+        --color-fg: CanvasText;
+        --color-muted: GrayText;
+        --color-border: ButtonBorder;
+        --color-focus: Highlight;
+        --color-hover: Highlight;
+        --color-accent: Highlight;
+    }
+}

@@ -8,17 +8,17 @@ export const calculateSearchRelevanceScore = (item: string, term: string) => {
   const lowerItem = item.toLowerCase();
   const lowerTerm = term.toLowerCase();
 
-  // Checks for an exact match
+  // checks for an exact match
   if (lowerItem === lowerTerm) {
     return 100;
   }
 
-  // Checks for a prefix match
+  // checkx for a prefix match
   if (lowerItem.startsWith(lowerTerm)) {
     score += 50;
   }
 
-  // Checks for a substring match
+  // checks for a substring match
   if (lowerItem.includes(lowerTerm)) {
     score += 25;
   }

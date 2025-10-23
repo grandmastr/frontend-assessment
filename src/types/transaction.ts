@@ -1,13 +1,16 @@
+export type TransactionStatus = 'pending' | 'completed' | 'failed';
+export type TransactionType = 'debit' | 'credit';
+
 export interface Transaction {
   id: string;
   timestamp: Date;
   amount: number;
   currency: string;
-  type: 'debit' | 'credit';
+  type: TransactionType;
   category: string;
   description: string;
   merchantName: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: TransactionStatus;
   userId: string;
   accountId: string;
   location?: string;
@@ -32,8 +35,8 @@ export interface FilterOptions {
     min: number;
     max: number;
   };
-  type?: 'debit' | 'credit' | 'all';
+  type?: TransactionType | 'all';
   category?: string;
-  status?: 'pending' | 'completed' | 'failed' | 'all';
+  status?: TransactionStatus | 'all';
   searchTerm?: string;
 }
