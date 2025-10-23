@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, DollarSign, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
-import { Transaction, TransactionSummary } from '../../types/transaction.ts';
-import { AnalyticsSummary } from '../../hooks/useRiskAnalytics.ts';
+import { Transaction, TransactionSummary } from '../../types/transaction';
+import { AnalyticsSummary } from '../../hooks/useRiskAnalytics';
 import styles from './Stats.module.css';
 
 interface StatsProps {
@@ -21,6 +21,7 @@ export const Stats = ({
 }: StatsProps): React.ReactElement => {
   return (
     <div className={styles.stats}>
+      {/* total amount card displaying the sum of all transaction amounts */}
       <div className={styles.card}>
         <div className={`${styles.iconContainer} ${styles.total}`}>
           <DollarSign size={28} />
@@ -33,6 +34,7 @@ export const Stats = ({
         </div>
       </div>
 
+      {/* total credits card showing sum of all credit (incoming) transactions */}
       <div className={styles.card}>
         <div className={`${styles.iconContainer} ${styles.credits}`}>
           <TrendingUp size={28} />
@@ -45,6 +47,7 @@ export const Stats = ({
         </div>
       </div>
 
+      {/* total debits card showing sum of all debit (outgoing) transactions */}
       <div className={styles.card}>
         <div className={`${styles.iconContainer} ${styles.debits}`}>
           <TrendingDown size={28} />
@@ -57,6 +60,7 @@ export const Stats = ({
         </div>
       </div>
 
+      {/* transaction count card showing filtered count vs total count when filters are active */}
       <div className={styles.card}>
         <div className={`${styles.iconContainer} ${styles.transactions}`}>
           <Clock size={28} />
@@ -64,6 +68,7 @@ export const Stats = ({
         <div className={styles.content}>
           <div className={styles.value}>
             {filteredTransactions.length.toLocaleString()}
+            {/* displays secondary count showing total when different from filtered count */}
             {filteredTransactions.length !== txnCount && (
               <span className={styles.secondary}>
                 {' '}
@@ -77,6 +82,8 @@ export const Stats = ({
         </div>
       </div>
 
+      {/* high risk transactions card, only shown when risk analytics are available or analyzing
+          displays a loading spinner when analysis is in progress */}
       {(riskAnalytics?.highRiskTransactions || isAnalyzing) && (
         <div className={`${styles.card} ${isAnalyzing ? styles.cardLoading : ''}`}>
           <div className={`${styles.iconContainer} ${styles.risk}`}>

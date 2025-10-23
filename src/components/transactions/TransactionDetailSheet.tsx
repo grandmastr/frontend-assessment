@@ -29,10 +29,13 @@ export const TransactionDetailSheet: React.FC<TransactionDetailSheetProps> = ({
     return null;
   }
 
+  // returns the appropriate CSS class for the transaction status badge (completed, pending, failed)
   const getStatusClass = (status: string) => {
     return `${styles.status} ${styles[`status--${status}`]}`;
   };
 
+  // returns the appropriate CSS class for the amount display based on transaction type (debit/credit)
+  // applies different styling for negative (debit) vs positive (credit) amounts
   const getAmountClass = (type: string) => {
     return `${styles.amount} ${styles[`amount--${type}`]}`;
   };
@@ -41,21 +44,15 @@ export const TransactionDetailSheet: React.FC<TransactionDetailSheetProps> = ({
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
-        <Dialog.Content
-          className={styles.content}
-          aria-labelledby="transaction-detail-title"
-          aria-describedby="transaction-detail-description"
-        >
-          <div className={styles.header}>
-            <div className={styles.titleSection}>
-              <Dialog.Title className={styles.title} id="transaction-detail-title">
-                Transaction Details
-              </Dialog.Title>
-              <Dialog.Description className={styles.description} id="transaction-detail-description">
-                Detailed information about this transaction
-              </Dialog.Description>
-            </div>
+        <Dialog.Content className={styles.content}>
+          <Dialog.Title className={styles.title}>
+            Transaction Details
+          </Dialog.Title>
+          <Dialog.Description className={styles.description}>
+            Detailed information about this transaction
+          </Dialog.Description>
 
+          <div className={styles.header}>
             <Dialog.Close asChild>
               <Button
                 variant="ghost"

@@ -6,6 +6,9 @@ import React, {
   useState,
 } from 'react';
 
+// defines global application settings including theme, locale, currency, and user permissions
+// stores feature flags for enabling/disabling experimental features
+// tracks user role and permissions for access control
 interface GlobalSettings {
   theme?: string;
   locale?: string;
@@ -16,6 +19,8 @@ interface GlobalSettings {
   permissions?: string[];
 }
 
+// defines user notification preferences across multiple channels
+// controls notification frequency and which categories trigger alerts
 interface NotificationSettings {
   email?: boolean;
   push?: boolean;
@@ -24,6 +29,8 @@ interface NotificationSettings {
   categories?: string[];
 }
 
+// context type providing access to settings and update methods
+// enables any component to read or modify user preferences
 interface UserContextType {
   globalSettings: GlobalSettings;
   notificationSettings: NotificationSettings;
@@ -33,11 +40,15 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+// provider component that wraps the application to supply user context
+// initializes default settings and provides methods to update them
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  // initializes global settings with sensible defaults
+  // TODO: should detect and use system theme preference instead of hardcoding 'light'
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
-    theme: 'light', // TODO: default this to system theme
+    theme: 'light',
     locale: 'en-US',
     currency: 'USD',
     timezone: 'UTC',
@@ -46,6 +57,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     permissions: ['read', 'write'],
   });
 
+  // initializes notification settings with conservative defaults
+  // enables email notifications by default, disables push and sms
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings>({
       email: true,
@@ -55,9 +68,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       categories: ['transactions', 'alerts'],
     });
 
-  /**
-   * Updates the global settings and tracks the activity.
-   */
+  // updates global settings while preserving existing values
+  // tracks lastActivity timestamp for session management and analytics
   const updateGlobalSettings = useCallback(
     (settings: Partial<GlobalSettings>) => {
       setGlobalSettings(prev => ({
@@ -69,9 +81,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
-  /**
-   * Updates the notification settings.
-   */
+  // updates notification settings while preserving existing values
+  // allows partial updates without overwriting unspecified fields
   const updateNotificationSettings = useCallback(
     (settings: Partial<NotificationSettings>) => {
       setNotificationSettings(prev => ({ ...prev, ...settings }));
@@ -79,7 +90,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
-  // Wrapped up the context value in useMemo to avoid unnecessary re-renders
+  // memoizes context value to prevent unnecessary re-renders of consuming components
+  // only updates when settings or update functions change
   const value = useMemo(
     () => ({
       globalSettings,
@@ -98,6 +110,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };
 
+// hook to access user context from any component
+// throws an error if used outside of UserProvider to catch configuration mistakes early
 export const useUserContext = () => {
   const context = useContext(UserContext);
   if (!context) {

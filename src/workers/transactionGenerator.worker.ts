@@ -1,3 +1,6 @@
+/* Web Worker for generating mock transaction data with streaming batch processing
+ * Handles large-scale transaction generation off the main thread to prevent UI blocking
+ * Supports both initial seed data and continuous streaming with configurable batch sizes */
 import { Transaction, TransactionSummary } from '../types/transaction.ts';
 import { ACTIONS, CATEGORIES, ITEMS, LOCATIONS, MERCHANTS } from '../constants';
 import wait from '../helpers/wait.ts';
@@ -25,11 +28,13 @@ const SEED_COUNT = 200;
 
 let killGeneration = false;
 
+// main message handler for processing worker requests (init, kill)
 self.addEventListener(
   'message',
   async (event: MessageEvent<GeneratorRequest>) => {
     const { data } = event;
 
+    // handle kill signal to stop generation immediately
     if (data.type === 'kill') {
       killGeneration = true;
       return;
@@ -41,15 +46,17 @@ self.addEventListener(
 
     const targetSize = data.total;
 
-    // Math.min to make sure we don't generate more than the target size
+    // generate initial seed data, ensuring we don't exceed the target size
     const initialData = generateTransactions(Math.min(SEED_COUNT, targetSize));
 
+    // send initial seed data with summary to main thread
     self.postMessage({
       type: 'seed',
       transactions: initialData,
       summary: calculateSummary(initialData),
     } satisfies GeneratorResponse);
 
+    // if seed data meets the target, send completion signal
     if (initialData.length >= targetSize) {
       self.postMessage({
         type: 'batch',
@@ -64,6 +71,8 @@ self.addEventListener(
   }
 );
 
+// schedules and processes subsequent batches until target size is reached
+// uses configurable batch sizes with yielding to prevent blocking
 const scheduleNextBatch = async (
   producedCount: number,
   targetSize: number,
@@ -71,12 +80,14 @@ const scheduleNextBatch = async (
 ) => {
   let produced = producedCount;
 
+  // continue generating batches until target is reached or kill signal is received
   while (!killGeneration && produced < targetSize) {
     const remaining = targetSize - produced;
     const transactionCount = Math.min(batchSize, remaining);
     const transactions = generateTransactions(transactionCount, produced);
     produced += transactions.length;
 
+    // send batch data with summary delta and completion status
     self.postMessage({
       type: 'batch',
       transactions,
@@ -84,11 +95,13 @@ const scheduleNextBatch = async (
       done: produced >= targetSize,
     } satisfies GeneratorResponse);
 
+    // yield control to prevent blocking with small delay between batches
     if (produced < targetSize && !killGeneration) {
       await wait(16);
     }
   }
 
+  // send final completion message if not killed
   if (!killGeneration) {
     self.postMessage({
       type: 'batch',
@@ -99,13 +112,17 @@ const scheduleNextBatch = async (
   }
 };
 
+// generates realistic mock transaction data with proper randomization and risk scoring
+// creates transactions with varied amounts, timestamps, merchants, and risk factors
 const generateTransactions = (count: number, offset = 0): Transaction[] => {
   const transactions: Transaction[] = [];
 
+  // generate individual transactions with realistic data patterns
   for (let i = 0; i < count; i++) {
     const index = offset + i;
     const risk = calculateTransactionRisk(index);
 
+    // create realistic transaction amounts with risk-based adjustments
     const baseAmount = Math.round((Math.random() * 5000 + 1) * 100) / 100;
     const adjustedAmount = risk > 0 ? baseAmount * 1.001 : baseAmount;
 
@@ -140,7 +157,8 @@ const generateTransactions = (count: number, offset = 0): Transaction[] => {
   return transactions;
 };
 
-// this is optimized to loop once instead of multiple loops
+// calculates transaction summary statistics in a single optimized loop
+// computes totals, averages, and category counts for dashboard display
 const calculateSummary = (records: Transaction[]): TransactionSummary => {
   const summary: TransactionSummary = {
     totalTransactions: 0,
@@ -168,11 +186,12 @@ const calculateSummary = (records: Transaction[]): TransactionSummary => {
   return summary;
 };
 
-// this remains the same
+// calculates realistic risk scores using multi-factor analysis
+// simulates fraud detection patterns with weighted factor combinations
 const calculateTransactionRisk = (transactionIndex: number): number => {
   let riskScore = 0;
 
-  // Multi-factor risk assessment algorithm
+  // simulate multiple risk assessment factors
   const factors = {
     timeOfDay: Math.sin(transactionIndex * 0.1),
     userPattern: Math.cos(transactionIndex * 0.05),
@@ -181,7 +200,7 @@ const calculateTransactionRisk = (transactionIndex: number): number => {
     deviceFingerprint: Math.cos(transactionIndex * 0.15),
   };
 
-  // Calculate risk using weighted factor analysis
+  // apply weighted factor analysis to calculate overall risk score
   const weights = [0.3, 0.25, 0.2, 0.15, 0.1];
   const factorValues = Object.values(factors);
 
@@ -189,7 +208,7 @@ const calculateTransactionRisk = (transactionIndex: number): number => {
     riskScore +=
       factorValues[i] * weights[i] * (1 + Math.sin(transactionIndex * 0.01));
 
-    // Cross-correlation analysis for pattern detection
+    // perform cross-correlation analysis for pattern detection
     for (let j = i + 1; j < factorValues.length; j++) {
       riskScore += factorValues[i] * factorValues[j] * 0.05;
     }
@@ -198,6 +217,7 @@ const calculateTransactionRisk = (transactionIndex: number): number => {
   return Math.abs(riskScore);
 };
 
+// generates realistic transaction descriptions by combining random actions and items
 const generateRandomDescription = (): string => {
   return `${ACTIONS[Math.floor(Math.random() * ACTIONS.length)]} - ${
     ITEMS[Math.floor(Math.random() * ITEMS.length)]

@@ -1,3 +1,11 @@
+/*
+* unit test for the useRiskAnalytics hook testing:
+* - debouncing mechanism to prevent excessive worker calls
+* - minimum transaction size threshold before analysis
+* - worker message handling (partial and complete)
+* - cleanup and termination on unmount
+**/
+
 import { act } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +22,7 @@ interface WorkerMessage {
 
 type Listener = (event: MessageEvent<WorkerMessage>) => void;
 
+// mock worker to simulate analytics worker events and message passing
 class MockAnalyticsWorker {
   public posted: WorkerMessage[] = [];
   public listeners = new Map<string, Set<Listener>>();
@@ -42,18 +51,21 @@ class MockAnalyticsWorker {
 }
 
 describe('useRiskAnalytics', () => {
+  // setup fake timers and stub Worker before each test
   beforeEach(() => {
     vi.useFakeTimers();
     MockAnalyticsWorker.instances = [];
     vi.stubGlobal('Worker', MockAnalyticsWorker as unknown as typeof Worker);
   });
 
+  // cleanup timers and global stubs after each test
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
+  // helper to render the hook with test transactions and return worker instance
   const renderAnalytics = (transactions = [createTransaction({ id: '1' }), createTransaction({ id: '2' })]) => {
     const onComplete = vi.fn();
     const hook = renderHook(({ txns }) =>
@@ -69,6 +81,7 @@ describe('useRiskAnalytics', () => {
     return { ...hook, worker: MockAnalyticsWorker.instances.at(-1)!, onComplete };
   };
 
+  // verifies that rapid transaction updates are debounced to avoid excessive worker calls
   it('debouncing mechanism', async () => {
     const txns = [createTransaction({ id: 'a' }), createTransaction({ id: 'b' }), createTransaction({ id: 'c' })];
     const { rerender, worker } = renderAnalytics(txns);
@@ -83,6 +96,7 @@ describe('useRiskAnalytics', () => {
     });
   });
 
+  // verifies that analysis does not trigger when transaction count is below minimum threshold
   it('minimum size threshold', async () => {
     const { result, worker } = renderAnalytics([createTransaction({ id: 'only-one' })]);
 
@@ -94,6 +108,11 @@ describe('useRiskAnalytics', () => {
     expect(worker.posted.some(msg => msg.type === 'analyze')).toBe(false);
   });
 
+  /*
+  * verifies worker message handling:
+  * - partial messages update state while keeping isAnalyzing true
+  * - complete messages finalize state, set isAnalyzing to false, and trigger onComplete callback
+  */
   it('worker message handling', async () => {
     const { result, worker, onComplete } = renderAnalytics();
 
@@ -129,6 +148,7 @@ describe('useRiskAnalytics', () => {
     expect(onComplete).toHaveBeenCalled();
   });
 
+  // verifies that worker is properly killed and terminated on component unmount
   it('cleanup on unmount', () => {
     const { unmount, worker } = renderAnalytics();
 

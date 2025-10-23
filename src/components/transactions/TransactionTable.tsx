@@ -33,6 +33,11 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   const [sortField, setSortField] = useState<SortField>('timestamp');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+  /**
+   * handles column header clicks to toggle sorting
+   * if clicking the same field, toggles between asc/desc
+   * if clicking a new field, sets it as sort field with default direction (desc for timestamp, asc for others)
+   */
   const handleSort = useCallback(
     (field: SortField) => {
       if (sortField === field) {
@@ -45,6 +50,11 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     [sortField, sortDirection]
   );
 
+  /**
+   * memoized sorted transactions array that updates when transactions, sortField, or sortDirection changes
+   * converts timestamp to milliseconds for numeric comparison
+   * converts merchantName to lowercase for case-insensitive sorting
+   */
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => {
       let aValue: string | number;
@@ -77,6 +87,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     });
   }, [transactions, sortField, sortDirection]);
 
+  /**
+   * memoized data object passed to react-window List component
+   * contains sorted transactions and click handler for row components
+   */
   const itemData = useMemo(
     () => ({
       transactions: sortedTransactions,
@@ -85,6 +99,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     [sortedTransactions, onTransactionClick]
   );
 
+  /**
+   * returns the appropriate sort icon (up/down chevron) for a column header
+   * only shows icon for the currently active sort field
+   */
   const getSortIcon = (field: SortField): React.ReactNode => {
     if (sortField !== field) return null;
     return sortDirection === 'asc' ? (
@@ -94,6 +112,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     );
   };
 
+  /**
+   * row renderer function for react-window virtualized list
+   * receives row props including index, style positioning, and item data
+   */
   const rowRenderer = useCallback(
     (props: RowComponentProps<RowItemData>) => {
       const { index, style, transactions, onTransactionClick } = props;
@@ -231,19 +253,22 @@ const TransactionRow: React.FC<TransactionRowProps> = ({
   transaction,
   onTransactionClick,
 }) => {
-
+  // formats date as "MMM dd, yyyy" (e.g., "Jan 15, 2024")
   const formatDate = (date: Date): string => {
     return format(date, 'MMM dd, yyyy');
   };
 
+  // formats time as 24-hour "HH:mm" (e.g., "14:30")
   const formatTime = (date: Date): string => {
     return format(date, 'HH:mm');
   };
 
+  // triggers the parent click handler with the current transaction
   const handleClick = () => {
     onTransactionClick(transaction);
   };
 
+  // handles keyboard interaction for accessibility, triggering click on Enter or Space
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

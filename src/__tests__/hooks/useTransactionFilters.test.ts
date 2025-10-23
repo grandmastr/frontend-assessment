@@ -1,9 +1,19 @@
+/*
+* unit test for the useTransactionFilters hook testing:
+* - search term filtering across transaction fields
+* - type, status, and category filter combinations
+* - pagination behavior with compact view toggle
+* - performance with large datasets (2000+ transactions)
+* - unique category extraction from transactions
+**/
+
 import { act } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useTransactionFilters } from '../../hooks/useTransactionFilters';
 import { createTransaction } from '../testUtils';
 
+// helper to generate test transactions with various attributes for filter testing
 const makeTransactions = () => [
   createTransaction({ id: '1', description: 'Amazon purchase', merchantName: 'Amazon', category: 'shopping' }),
   createTransaction({ id: '2', description: 'Starbucks coffee', merchantName: 'Starbucks', category: 'food', type: 'debit' }),
@@ -12,6 +22,7 @@ const makeTransactions = () => [
 ];
 
 describe('useTransactionFilters', () => {
+  // verifies that search term filters transactions by matching description and merchant name
   it('applies search term filtering correctly', async () => {
     const transactions = makeTransactions();
     const { result } = renderHook(() =>
@@ -28,6 +39,7 @@ describe('useTransactionFilters', () => {
     });
   });
 
+  // verifies that type, status, and category filters can be combined to narrow results
   it('handles type/status/category filters', async () => {
     const transactions = makeTransactions();
     const { result } = renderHook(() =>
@@ -49,6 +61,7 @@ describe('useTransactionFilters', () => {
     });
   });
 
+  // verifies that pagination respects itemsPerPage and compact view limits displayed results
   it('pagination with compactView', async () => {
     const transactions = Array.from({ length: 20 }, (_, index) =>
       createTransaction({ id: `${index}`, description: `Item ${index}`, merchantName: `Shop ${index}` })
@@ -75,6 +88,7 @@ describe('useTransactionFilters', () => {
     });
   });
 
+  // verifies that filtering performs efficiently with large datasets of 2000+ transactions
   it('performance with large datasets', async () => {
     const transactions = Array.from({ length: 2000 }, (_, index) =>
       createTransaction({ id: `txn-${index}`, description: `Item ${index}`, merchantName: `Merchant ${index}` })
@@ -94,6 +108,7 @@ describe('useTransactionFilters', () => {
     });
   });
 
+  // verifies that unique categories are correctly extracted from the transaction list
   it('unique categories extraction', () => {
     const transactions = makeTransactions();
     const { result } = renderHook(() =>

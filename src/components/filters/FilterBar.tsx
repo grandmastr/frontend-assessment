@@ -19,6 +19,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   totalCount,
   filteredCount
 }) => {
+  // handles status filter changes, converting 'all' to undefined to clear the filter
+  // updates only the status field while preserving other active filters
   const handleStatusChange = useCallback((status: string) => {
     onFiltersChange({
       ...filters,
@@ -26,6 +28,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     });
   }, [filters, onFiltersChange]);
 
+  // handles transaction type filter changes (debit/credit)
+  // clears the type filter when 'all' is selected to show all transaction types
   const handleTypeChange = useCallback((type: string) => {
     onFiltersChange({
       ...filters,
@@ -33,6 +37,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     });
   }, [filters, onFiltersChange]);
 
+  // handles category filter changes from the dynamic category list
+  // allows filtering by transaction category or clearing with 'all' option
   const handleCategoryChange = useCallback((category: string) => {
     onFiltersChange({
       ...filters,
@@ -42,7 +48,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
   return (
     <div className={styles.filterBar}>
+      {/* filter controls section with three dropdown selects for status, type, and category */}
       <div className={styles.filters}>
+        {/* status filter dropdown: allows filtering by completed, pending, or failed transactions */}
         <div className={styles.filterGroup}>
           <label className={styles.filterLabel}>Status</label>
           <Select.Root
@@ -54,6 +62,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <Select.Icon>
                 <ChevronDown size={16} />
               </Select.Icon>
+              {/* visual indicator dot shown when a status filter is actively applied */}
               {filters.status && filters.status !== 'all' && (
                 <div className={styles.activeIndicator} aria-hidden="true" />
               )}
@@ -80,6 +89,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </Select.Root>
         </div>
 
+        {/* transaction type filter dropdown: filters by debit or credit transactions */}
         <div className={styles.filterGroup}>
           <label className={styles.filterLabel}>Type</label>
           <Select.Root
@@ -91,6 +101,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <Select.Icon>
                 <ChevronDown size={16} />
               </Select.Icon>
+              {/* visual indicator dot shown when a type filter is actively applied */}
               {filters.type && filters.type !== 'all' && (
                 <div className={styles.activeIndicator} aria-hidden="true" />
               )}
@@ -114,6 +125,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </Select.Root>
         </div>
 
+        {/* category filter dropdown: dynamically populated with unique categories from transactions */}
         <div className={styles.filterGroup}>
           <label className={styles.filterLabel}>Category</label>
           <Select.Root
@@ -125,6 +137,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <Select.Icon>
                 <ChevronDown size={16} />
               </Select.Icon>
+              {/* visual indicator dot shown when a category filter is actively applied */}
               {filters.category && filters.category !== 'all' && (
                 <div className={styles.activeIndicator} aria-hidden="true" />
               )}
@@ -136,6 +149,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   <Select.Item value="all" className={styles.item}>
                     <Select.ItemText>All Categories</Select.ItemText>
                   </Select.Item>
+                  {/* dynamically render category options from the provided categories array */}
                   {categories.map(category => (
                     <Select.Item key={category} value={category} className={styles.item}>
                       <Select.ItemText>{category}</Select.ItemText>
@@ -148,6 +162,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
+      {/* summary section displaying the count of filtered transactions vs total transactions */}
       <div className={styles.summary}>
         <div className={styles.summaryItem}>
           <span className={styles.summaryValue}>{filteredCount}</span>
