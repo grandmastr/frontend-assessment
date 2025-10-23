@@ -6,13 +6,14 @@ export const debounce = <This, Args>(
   func: (this: This, ...args: Args[]) => void,
   ms: number
 ) => {
-  let timer: number | undefined;
+  let timer: number | null = null;
 
   return function (this: This, ...args: Args[]) {
     if (timer) clearTimeout(timer);
 
     timer = setTimeout(() => {
       func.apply(this, args);
+      timer = null;
     }, ms);
   };
 };
