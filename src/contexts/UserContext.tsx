@@ -7,22 +7,21 @@ import React, {
 } from 'react';
 
 interface GlobalSettings {
-  theme: string;
-  locale: string;
-  currency: string;
-  timezone: string;
-  featureFlags: Record<string, boolean>;
-  userRole: string;
-  permissions: string[];
-  lastActivity: Date;
+  theme?: string;
+  locale?: string;
+  currency?: string;
+  timezone?: string;
+  featureFlags?: Record<string, boolean>;
+  userRole?: string;
+  permissions?: string[];
 }
 
 interface NotificationSettings {
-  email: boolean;
-  push: boolean;
-  sms: boolean;
-  frequency: string;
-  categories: string[];
+  email?: boolean;
+  push?: boolean;
+  sms?: boolean;
+  frequency?: string;
+  categories?: string[];
 }
 
 interface UserContextType {
@@ -30,7 +29,6 @@ interface UserContextType {
   notificationSettings: NotificationSettings;
   updateGlobalSettings: (settings: GlobalSettings) => void;
   updateNotificationSettings: (settings: NotificationSettings) => void;
-  trackActivity: (activity: string) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -46,7 +44,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     featureFlags: { newDashboard: true, advancedFilters: false },
     userRole: 'user',
     permissions: ['read', 'write'],
-    lastActivity: new Date(),
   });
 
   const [notificationSettings, setNotificationSettings] =
@@ -58,41 +55,41 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       categories: ['transactions', 'alerts'],
     });
 
-  const updateGlobalSettings = useCallback((settings: GlobalSettings) => {
-    setGlobalSettings(prev => ({
-      ...prev,
-      ...settings,
-      lastActivity: new Date(),
-    }));
-  }, []);
+  /**
+   * Updates the global settings and tracks the activity.
+   */
+  const updateGlobalSettings = useCallback(
+    (settings: Partial<GlobalSettings>) => {
+      setGlobalSettings(prev => ({
+        ...prev,
+        ...settings,
+        lastActivity: new Date(),
+      }));
+    },
+    []
+  );
 
+  /**
+   * Updates the notification settings.
+   */
   const updateNotificationSettings = useCallback(
-    (settings: NotificationSettings) => {
+    (settings: Partial<NotificationSettings>) => {
       setNotificationSettings(prev => ({ ...prev, ...settings }));
     },
     []
   );
 
-  // TODO: figure what activity is and for
-  const trackActivity = useCallback(() => {
-    setGlobalSettings(prev => ({
-      ...prev,
-      lastActivity: new Date(),
-    }));
-  }, []);
-
+  // Wrapped up the context value in useMemo to avoid unnecessary re-renders
   const value = useMemo(
     () => ({
       globalSettings,
       notificationSettings,
       updateGlobalSettings,
       updateNotificationSettings,
-      trackActivity,
     }),
     [
       globalSettings,
       notificationSettings,
-      trackActivity,
       updateGlobalSettings,
       updateNotificationSettings,
     ]

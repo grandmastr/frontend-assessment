@@ -3,14 +3,14 @@ import { Transaction, TransactionSummary } from '../types/transaction';
 import {
   GeneratorRequest,
   GeneratorResponse,
-} from '../workers/transactionGenerator';
+} from '../workers/transactionGenerator.worker.ts';
 import wait from '../helpers/wait';
 
 interface UseTransactionGeneratorOptions {
   initialTotal: number;
   streamBatchTotal: number;
   refreshInterval: number;
-  onAnalysisComplete?: () => void;
+  onIdle?: () => void;
 }
 
 interface UseTransactionGeneratorReturn {
@@ -24,7 +24,7 @@ export const useTransactionGenerator = ({
   initialTotal,
   streamBatchTotal,
   refreshInterval,
-  onAnalysisComplete,
+  onIdle,
 }: UseTransactionGeneratorOptions): UseTransactionGeneratorReturn => {
   const workerRef = useRef<Worker | null>(null);
   const scheduleNextBatchRef = useRef<() => void>(() => {});
@@ -37,7 +37,7 @@ export const useTransactionGenerator = ({
     let hasLoadedOnce = false;
 
     const worker = new Worker(
-      new URL('../workers/transactionGenerator.ts', import.meta.url),
+      new URL('../workers/transactionGenerator.worker.ts', import.meta.url),
       {
         type: 'module',
       }
@@ -93,8 +93,11 @@ export const useTransactionGenerator = ({
       }
 
       if (payload?.done && nextTransactions.length === 0) {
-        onAnalysisComplete?.();
-        scheduleNextBatchRef.current?.();
+        if (onIdle) {
+          onIdle();
+        } else {
+          scheduleNextBatchRef.current?.();
+        }
       }
     };
 
@@ -109,7 +112,7 @@ export const useTransactionGenerator = ({
       workerRef.current = null;
       scheduleNextBatchRef.current = () => {};
     };
-  }, [initialTotal, streamBatchTotal, refreshInterval, onAnalysisComplete]);
+  }, [initialTotal, streamBatchTotal, refreshInterval, onIdle]);
 
   return {
     transactions,

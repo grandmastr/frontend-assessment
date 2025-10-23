@@ -2,7 +2,7 @@
  * This is a custom debounce function that allows you to specify the this context and arguments.
  */
 
-const debounce = <This, Args>(
+export const debounce = <This, Args>(
   func: (this: This, ...args: Args[]) => void,
   ms: number
 ) => {
@@ -16,5 +16,3 @@ const debounce = <This, Args>(
     }, ms);
   };
 };
-
-export default debounce;

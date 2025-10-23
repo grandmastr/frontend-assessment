@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TransactionList } from './TransactionList';
 import { SearchBar } from './SearchBar';
 import { Stats } from './Stats';
@@ -17,7 +17,7 @@ const INITIAL_TOTAL = 10000;
 const STREAM_BATCH_TOTAL = 200;
 
 export const Dashboard: React.FC = () => {
-  const { globalSettings, trackActivity } = useUserContext();
+  const { globalSettings } = useUserContext();
 
   const [refreshInterval, setRefreshInterval] = useState<number>(10000);
   const [userPreferences, setUserPreferences] = useState({
@@ -34,12 +34,9 @@ export const Dashboard: React.FC = () => {
 
   const pendingBatchRef = useRef(false);
   const scheduleNextBatchRef = useRef<(() => void) | null>(null);
+  const isAnalyzingRef = useRef(false);
 
   const actualRefreshRate = refreshInterval || 10000;
-
-  if (import.meta.env.DEV) {
-    console.log('Refresh rate configured:', actualRefreshRate);
-  }
 
   const refreshControls = {
     currentRate: refreshInterval,
@@ -53,11 +50,13 @@ export const Dashboard: React.FC = () => {
     ).dashboardControls = refreshControls;
   }
 
-  const handleAnalysisComplete = useCallback(() => {
-    if (pendingBatchRef.current) {
-      pendingBatchRef.current = false;
-      scheduleNextBatchRef.current?.();
+  const handleGeneratorIdle = useCallback(() => {
+    if (isAnalyzingRef.current) {
+      pendingBatchRef.current = true;
+      return;
     }
+
+    scheduleNextBatchRef.current?.();
   }, []);
 
   const { transactions, summary, loading, scheduleNextBatch } =
@@ -65,7 +64,7 @@ export const Dashboard: React.FC = () => {
       initialTotal: INITIAL_TOTAL,
       streamBatchTotal: STREAM_BATCH_TOTAL,
       refreshInterval: actualRefreshRate,
-      onAnalysisComplete: handleAnalysisComplete,
+      onIdle: handleGeneratorIdle,
     });
 
   scheduleNextBatchRef.current = scheduleNextBatch;
@@ -88,8 +87,16 @@ export const Dashboard: React.FC = () => {
     transactions: filteredTransactions,
     minSize: MIN_ANALYTICS_SIZE,
     debounceMs: ANALYTICS_DEBOUNCE_MS,
-    onComplete: handleAnalysisComplete,
   });
+
+  isAnalyzingRef.current = isAnalyzing;
+
+  useEffect(() => {
+    if (!isAnalyzing && pendingBatchRef.current) {
+      pendingBatchRef.current = false;
+      scheduleNextBatchRef.current?.();
+    }
+  }, [isAnalyzing]);
 
   const handlePreferencesUpdate = useCallback(
     (updates: Partial<typeof userPreferences>) => {
@@ -114,10 +121,9 @@ export const Dashboard: React.FC = () => {
   const handleSearch = useCallback(
     (value: string) => {
       setSearchTerm(value);
-      trackActivity(`search:${value}`);
       applyFilters(filters, value);
     },
-    [applyFilters, filters, setSearchTerm, trackActivity]
+    [applyFilters, filters, setSearchTerm]
   );
 
   const handleFilterChange = useCallback(
