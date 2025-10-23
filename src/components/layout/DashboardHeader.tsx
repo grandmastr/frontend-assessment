@@ -1,5 +1,5 @@
 import React from 'react';
-import { SearchBar } from '../search/SearchBar.tsx';
+import { SearchBar } from '../search/SearchBar';
 import styles from './DashboardHeader.module.css';
 
 interface DashboardHeaderProps {
@@ -10,6 +10,10 @@ interface DashboardHeaderProps {
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onSearch
 }) => {
+  // provides a fallback no-op function if onSearch prop is not provided
+  // ensures SearchBar always has a valid callback to prevent runtime errors
+  const handleSearch = onSearch || (() => {});
+
   return (
     <div className={styles.header}>
       <div className={styles.brand}>
@@ -17,7 +21,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       </div>
 
       <div className={styles.search} role="search">
-        <SearchBar onSearch={onSearch || (() => {})} />
+        <SearchBar onSearch={handleSearch} />
       </div>
     </div>
   );

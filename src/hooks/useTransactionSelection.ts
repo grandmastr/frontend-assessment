@@ -25,6 +25,8 @@ interface UseTransactionSelectionReturn {
   closeTransactionDetail: () => void;
 }
 
+/* manages transaction selection state and analytics tracking for modal display
+ * handles click events, related transaction lookup, and user preference updates */
 export const useTransactionSelection = ({
   transactions,
   onPreferencesUpdate,
@@ -32,10 +34,13 @@ export const useTransactionSelection = ({
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
 
+  /* handles transaction click events and collects analytics data for tracking user interactions
+   * finds related transactions by merchant, category, or user ID for contextual analysis */
   const handleTransactionClick = useCallback(
     (transaction: Transaction) => {
       setSelectedTransaction(transaction);
 
+      // locate transactions related to the clicked one by matching merchant, category, or user
       const relatedTransactions = transactions.filter(
         t =>
           t.merchantName === transaction.merchantName ||
@@ -43,6 +48,7 @@ export const useTransactionSelection = ({
           t.userId === transaction.userId
       );
 
+      // collect comprehensive analytics data including session metrics and user interaction patterns
       const analyticsData = {
         clickedTransaction: transaction,
         relatedCount: relatedTransactions.length,
@@ -58,6 +64,7 @@ export const useTransactionSelection = ({
         },
       };
 
+      // update user preferences with collected analytics data if callback provided
       if (onPreferencesUpdate) {
         onPreferencesUpdate({
           analytics: analyticsData,
@@ -68,6 +75,7 @@ export const useTransactionSelection = ({
     [transactions, onPreferencesUpdate]
   );
 
+  // clears the selected transaction to close the detail modal
   const closeTransactionDetail = useCallback(() => {
     setSelectedTransaction(null);
   }, []);

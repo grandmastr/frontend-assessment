@@ -38,12 +38,16 @@ export const Dashboard: React.FC = () => {
     timestamps: { created: Date.now(), updated: Date.now() },
   });
 
+  // tracks whether a batch generation is pending, waiting for analytics to complete
   const pendingBatchRef = useRef(false);
+  // reference to the scheduleNextBatch function from transaction generator hook
   const scheduleNextBatchRef = useRef<(() => void) | null>(null);
+  // tracks current analyzing state to coordinate with transaction generation
   const isAnalyzingRef = useRef(false);
 
   const actualRefreshRate = refreshInterval || 10000;
 
+  // exposes refresh controls to window for debugging and testing purposes
   const refreshControls = {
     currentRate: refreshInterval,
     updateRate: setRefreshInterval,
@@ -56,6 +60,11 @@ export const Dashboard: React.FC = () => {
     ).dashboardControls = refreshControls;
   }
 
+  /**
+   * handles the idle state from transaction generator
+   * if analytics are running, marks batch as pending instead of immediately scheduling
+   * ensures analytics complete before generating more transactions to avoid overwhelming the system
+   */
   const handleGeneratorIdle = useCallback(() => {
     if (isAnalyzingRef.current) {
       pendingBatchRef.current = true;
@@ -65,6 +74,10 @@ export const Dashboard: React.FC = () => {
     scheduleNextBatchRef.current?.();
   }, []);
 
+  /**
+   * initializes transaction generator with streaming configuration
+   * generates initial seed and continuously streams new batches at refresh interval
+   */
   const { transactions, loading, scheduleNextBatch } = useTransactionGenerator({
     initialTotal: INITIAL_TOTAL,
     streamBatchTotal: STREAM_BATCH_TOTAL,
@@ -74,6 +87,10 @@ export const Dashboard: React.FC = () => {
 
   scheduleNextBatchRef.current = scheduleNextBatch;
 
+  /**
+   * manages transaction filtering and search functionality
+   * provides filtered results, current filters, and methods to update them
+   */
   const {
     filteredTransactions,
     filters,
@@ -88,12 +105,21 @@ export const Dashboard: React.FC = () => {
     compactView: userPreferences.compactView,
   });
 
+  /**
+   * performs risk analytics on filtered transactions in a web worker
+   * only runs when transaction count exceeds MIN_ANALYTICS_SIZE threshold
+   * debounces re-analysis to avoid excessive computation during rapid updates
+   */
   const { isAnalyzing, riskAnalytics } = useRiskAnalytics({
     transactions: filteredTransactions,
     minSize: MIN_ANALYTICS_SIZE,
     debounceMs: ANALYTICS_DEBOUNCE_MS,
   });
 
+  /**
+   * calculates summary statistics for a set of transactions
+   * computes totals for amount, credits, debits, transaction count, average, and category distribution
+   */
   const calculateSummary = useCallback(
     (txns: Transaction[]): TransactionSummary => {
       const categoryCounts: Record<string, number> = {};
@@ -130,8 +156,13 @@ export const Dashboard: React.FC = () => {
     []
   );
 
+  // syncs analyzing state to ref for use in callbacks
   isAnalyzingRef.current = isAnalyzing;
 
+  /**
+   * watches for analytics completion and triggers pending batch if one was deferred
+   * ensures transaction generation resumes after analytics finish
+   */
   useEffect(() => {
     if (!isAnalyzing && pendingBatchRef.current) {
       pendingBatchRef.current = false;
@@ -139,6 +170,7 @@ export const Dashboard: React.FC = () => {
     }
   }, [isAnalyzing]);
 
+  // updates user preferences while maintaining timestamps for tracking changes
   const handlePreferencesUpdate = useCallback(
     (updates: Partial<typeof userPreferences>) => {
       setUserPreferences(prev => ({
@@ -150,6 +182,10 @@ export const Dashboard: React.FC = () => {
     []
   );
 
+  /**
+   * manages transaction selection for detail sheet modal
+   * provides selected transaction, click handler, and close handler
+   */
   const {
     selectedTransaction,
     handleTransactionClick,
@@ -159,6 +195,8 @@ export const Dashboard: React.FC = () => {
     onPreferencesUpdate: handlePreferencesUpdate,
   });
 
+  // handles search input changes from header component
+  // updates search term and re-applies filters with new search value
   const handleSearch = useCallback(
     (value: string) => {
       setSearchTerm(value);
@@ -167,6 +205,8 @@ export const Dashboard: React.FC = () => {
     [applyFilters, filters, setSearchTerm]
   );
 
+  // handles filter changes from filter bar component
+  // updates filters and re-applies them with current search term
   const handleFilterChange = useCallback(
     (newFilters: FilterOptions) => {
       setFilters(newFilters);
@@ -175,6 +215,7 @@ export const Dashboard: React.FC = () => {
     [applyFilters, searchTerm, setFilters]
   );
 
+  // shows loading spinner while initial transaction seed is generating
   if (loading) {
     return (
       <div className="loading-container">

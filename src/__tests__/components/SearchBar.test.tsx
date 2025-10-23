@@ -1,3 +1,12 @@
+/*
+* unit test for the SearchBar component testing:
+* - input normalization
+* - suggestion generation
+* - search history management
+* - search result relevance scoring
+* - security validation against XSS attacks
+**/
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,16 +19,20 @@ const renderSearchBar = (onSearch = vi.fn()) => {
   return { ...utils, input, onSearch, user };
 };
 
+// main test suite for SearchBar features
 describe('SearchBar', () => {
+  // setup fake timers before each test
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
+  // cleanup timers after each test
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
+  // tests input normalization: trims, lowercases, removes accents
   it('input normalization functions', async () => {
     const { input, user, onSearch } = renderSearchBar();
 
@@ -31,6 +44,7 @@ describe('SearchBar', () => {
     });
   });
 
+  // tests suggestion generation: shows relevant suggestions, limits count
   it('suggestion generation logic', async () => {
     const { input, user } = renderSearchBar();
 
@@ -44,6 +58,7 @@ describe('SearchBar', () => {
     });
   });
 
+  // tests search history: adds entry, displays recent, clears history
   it('search history management', async () => {
     const { input, user } = renderSearchBar();
 
@@ -58,6 +73,7 @@ describe('SearchBar', () => {
     });
   });
 
+  // tests relevance scoring: best match appears first
   it('relevance scoring algorithm', async () => {
     const { input, user } = renderSearchBar();
 
@@ -70,6 +86,7 @@ describe('SearchBar', () => {
     });
   });
 
+  // tests security: strips dangerous input, prevents XSS
   it('security validation features', async () => {
     const { input, user, onSearch } = renderSearchBar();
 

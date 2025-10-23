@@ -20,6 +20,8 @@ interface UseTransactionGeneratorReturn {
   scheduleNextBatch: () => void;
 }
 
+/* manages web worker lifecycle for transaction generation with streaming batch processing
+ * handles worker instantiation, cleanup, and processes seed and streaming batch messages */
 export const useTransactionGenerator = ({
   initialTotal,
   streamBatchTotal,
@@ -36,6 +38,7 @@ export const useTransactionGenerator = ({
     let cancelled = false;
     let hasLoadedOnce = false;
 
+    // create and initialize the transaction generator worker with module type support
     const worker = new Worker(
       new URL('../workers/transactionGenerator.worker.ts', import.meta.url),
       {
@@ -45,6 +48,7 @@ export const useTransactionGenerator = ({
 
     workerRef.current = worker;
 
+    // queues a new transaction generation job with specified total and batch size
     const queueGeneratorJob = (total: number) => {
       worker.postMessage({
         type: 'init',
@@ -53,6 +57,7 @@ export const useTransactionGenerator = ({
       } satisfies GeneratorRequest);
     };
 
+    // schedules the next batch generation after waiting for the refresh interval
     const scheduleNextBatch = async () => {
       if (cancelled) return;
       await wait(refreshInterval);
@@ -65,15 +70,19 @@ export const useTransactionGenerator = ({
       void scheduleNextBatch();
     };
 
+    /* processes worker messages and updates transaction state based on message type
+     * handles both initial seed data and subsequent streaming batches */
     const handleMessage = (event: MessageEvent<GeneratorResponse>) => {
       const payload = event.data;
       const nextTransactions = payload?.transactions ?? [];
 
+      // handle initial seed data with summary information
       if (payload.type === 'seed') {
         setTransactions(prev =>
           hasLoadedOnce ? prev.concat(nextTransactions) : nextTransactions
         );
 
+        // set summary and mark as loaded only on first seed
         if (!hasLoadedOnce) {
           setSummary(payload.summary);
           setLoading(false);
@@ -83,15 +92,18 @@ export const useTransactionGenerator = ({
         return;
       }
 
+      // append new transactions from streaming batches
       if (nextTransactions.length > 0) {
         setTransactions(prev => prev.concat(nextTransactions));
       }
 
+      // ensure loading state is cleared even for non-seed messages
       if (!hasLoadedOnce) {
         setLoading(false);
         hasLoadedOnce = true;
       }
 
+      // handle batch completion - call idle callback or schedule next batch
       if (payload?.done && nextTransactions.length === 0) {
         if (onIdle) {
           onIdle();
@@ -104,6 +116,7 @@ export const useTransactionGenerator = ({
     worker.addEventListener('message', handleMessage);
     queueGeneratorJob(initialTotal);
 
+    // cleanup function to properly terminate worker and prevent memory leaks
     return () => {
       cancelled = true;
       worker.removeEventListener('message', handleMessage);

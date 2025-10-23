@@ -71,6 +71,6 @@ bench('transaction generator: 100k records', async () => {
   const durationMs = performance.now() - start;
 
   expect(generated).toBe(TOTAL);
-  // eslint-disable-next-line no-console
-  console.log(`[bench test] Generated ${generated} records in ${durationMs.toFixed(2)} ms`);
+
+  console.log(`Generated ${generated} records in ${durationMs.toFixed(2)} ms`);
 });

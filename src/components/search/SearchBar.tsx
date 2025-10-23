@@ -1,10 +1,15 @@
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Clock, Search, X } from 'lucide-react';
 import { useImmer } from 'use-immer';
-import { calculateSearchRelevanceScore } from '../../utils/calculateSearchRelevanceScore.ts';
-import { normalizeString } from '../../helpers/normalizeString.ts';
-import { getHighlightedText } from '../../utils/getHighlightedText.tsx';
-import { debounce } from '../../helpers/debounce.ts';
+import { calculateSearchRelevanceScore } from '../../utils/calculateSearchRelevanceScore';
+import { normalizeString } from '../../helpers/normalizeString';
+import { debounce } from '../../helpers/debounce';
 
 interface SearchBarProps {
   onSearch: (searchTerm: string) => void;
@@ -95,14 +100,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     (term: string) => {
       if (term.length > 2) {
         setSearch(draft => {
-          const newHistory = [term, ...draft.searchHistory.filter(h => h !== term)];
+          const newHistory = [
+            term,
+            ...draft.searchHistory.filter(h => h !== term),
+          ];
           // ensures only the last 20 items are kept
           draft.searchHistory = newHistory.slice(0, 20);
         });
 
         // save to localStorage
         try {
-          const newHistory = [term, ...search.searchHistory.filter(h => h !== term)].slice(0, 20);
+          const newHistory = [
+            term,
+            ...search.searchHistory.filter(h => h !== term),
+          ].slice(0, 20);
           localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory));
         } catch (error) {
           console.warn('Failed to save search history:', error);
@@ -313,7 +324,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                       className="item-icon"
                       aria-hidden="true"
                     />
-                    {getHighlightedText(suggestion, search.term)}
+                    {suggestion}
                   </div>
                 ))}
               </div>

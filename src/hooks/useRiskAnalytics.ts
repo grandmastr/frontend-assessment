@@ -42,6 +42,8 @@ interface UseRiskAnalyticsReturn {
   isAnalyzing: boolean;
 }
 
+/* manages risk analytics processing via dedicated worker with debounced execution
+ * handles worker lifecycle, minimum size thresholds, and completion callbacks */
 export const useRiskAnalytics = ({
   transactions,
   minSize,
@@ -55,6 +57,7 @@ export const useRiskAnalytics = ({
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // initialize analytics worker and set up message handling for lifecycle management
   useEffect(() => {
     const worker = new Worker(
       new URL('../workers/analytics.worker.ts', import.meta.url),
@@ -65,14 +68,17 @@ export const useRiskAnalytics = ({
 
     analyticsWorkerRef.current = worker;
 
+    // processes analytics worker messages and updates state based on analysis progress
     const handleMessage = (event: MessageEvent<AnalyticsWorkerMessage>) => {
       const payload = event.data;
 
+      // update analytics with partial results during processing
       if (payload.type === 'partial') {
         setRiskAnalytics(payload.summary);
         return;
       }
 
+      // handle completed analysis and trigger completion callback
       if (payload.type === 'complete') {
         setRiskAnalytics(payload.summary);
         setIsAnalyzing(false);
@@ -82,6 +88,7 @@ export const useRiskAnalytics = ({
 
     worker.addEventListener('message', handleMessage);
 
+    // cleanup function to properly terminate analytics worker and prevent memory leaks
     return () => {
       worker.removeEventListener('message', handleMessage);
       worker.postMessage({ type: 'kill' } satisfies AnalyticsWorkerRequest);
@@ -90,16 +97,19 @@ export const useRiskAnalytics = ({
     };
   }, [onComplete]);
 
+  // debounced analytics execution with minimum size threshold enforcement
   useEffect(() => {
     if (!analyticsWorkerRef.current) {
       return;
     }
 
+    // clear existing timeout to implement debouncing behavior
     if (analyticsTimeoutRef.current) {
       window.clearTimeout(analyticsTimeoutRef.current);
       analyticsTimeoutRef.current = null;
     }
 
+    // cancel analysis if transaction count is below minimum threshold
     if (transactions.length < minSize) {
       analyticsWorkerRef.current.postMessage({
         type: 'cancel',
@@ -111,6 +121,7 @@ export const useRiskAnalytics = ({
 
     setIsAnalyzing(true);
 
+    // schedule debounced analysis execution with specified chunk size
     analyticsTimeoutRef.current = window.setTimeout(() => {
       analyticsWorkerRef.current?.postMessage({
         type: 'analyze',
@@ -119,6 +130,7 @@ export const useRiskAnalytics = ({
       } satisfies AnalyticsWorkerRequest);
     }, debounceMs);
 
+    // cleanup timeout and cancel ongoing analysis when effect dependencies change
     return () => {
       if (analyticsTimeoutRef.current) {
         window.clearTimeout(analyticsTimeoutRef.current);
@@ -131,6 +143,7 @@ export const useRiskAnalytics = ({
     };
   }, [transactions, minSize, debounceMs]);
 
+  // cleanup timeout on component unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (analyticsTimeoutRef.current) {

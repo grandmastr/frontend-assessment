@@ -1,9 +1,19 @@
+/*
+* unit test for the analytics worker testing:
+* - transaction processing in chunks with progress updates
+* - cancellation of ongoing analysis tasks
+* - risk factor calculation accuracy
+* - anomaly detection in transaction patterns
+* - worker termination and restart behavior
+**/
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTransaction } from '../testUtils';
 import type { Transaction } from '../../types/transaction';
 
 const waitResolvers: Array<() => void> = [];
 
+// mock wait helper to control async timing in worker tests
 vi.mock('../../helpers/wait', () => ({
   __esModule: true,
   default: vi.fn(
@@ -14,6 +24,7 @@ vi.mock('../../helpers/wait', () => ({
   ),
 }));
 
+// helper to flush all pending wait promises in the worker
 const flushWait = async () => {
   while (waitResolvers.length > 0) {
     const resolve = waitResolvers.shift();
@@ -30,6 +41,7 @@ describe('Analytics Worker', () => {
   let postMessage: ReturnType<typeof vi.fn>;
   let handleMessage: (event: MessageEvent<unknown>) => Promise<void>;
 
+  // helper to drain worker queue until complete message is posted
   const drainWorker = async () => {
     let safety = 0;
     while (
@@ -42,6 +54,7 @@ describe('Analytics Worker', () => {
     }
   };
 
+  // helper to boot the worker by resetting modules and stubbing self global
   const bootWorker = async () => {
     vi.resetModules();
     waitResolvers.length = 0;
@@ -68,20 +81,24 @@ describe('Analytics Worker', () => {
     ) => Promise<void>;
   };
 
+  // setup worker before each test
   beforeEach(async () => {
     await bootWorker();
   });
 
+  // cleanup globals and mocks after each test
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
+  // helper to build a dataset of test transactions
   const buildDataset = (count: number, overrides: Partial<Transaction> = {}) =>
     Array.from({ length: count }, (_, index) =>
       createTransaction({ id: `txn-${index}`, ...overrides })
     );
 
+  // verifies that transactions are processed in chunks with partial progress messages
   it('processes transactions in chunks', async () => {
     const transactions = buildDataset(5, {
       amount: 1500,
@@ -123,6 +140,7 @@ describe('Analytics Worker', () => {
     );
   });
 
+  // verifies that ongoing analysis can be cancelled mid-processing without completing
   it('handles cancellation correctly', async () => {
     const transactions = buildDataset(4, {
       amount: 900,
@@ -150,6 +168,7 @@ describe('Analytics Worker', () => {
     ).toBe(false);
   });
 
+  // verifies that risk factors are calculated accurately based on amount and timing
   it('calculates risk factors accurately', async () => {
     const riskyTxn = createTransaction({
       id: 'risky',
@@ -175,6 +194,7 @@ describe('Analytics Worker', () => {
     expect(summary.highRiskTransactions).toBe(1);
   });
 
+  // verifies that anomalous transactions are detected based on unusual amounts or locations
   it('detects transaction anomalies', async () => {
     const baseTxns = [
       createTransaction({
@@ -212,6 +232,7 @@ describe('Analytics Worker', () => {
     expect(summary.anomalies['odd']).toBeGreaterThan(0);
   });
 
+  // verifies that worker can be killed and restarted for new analysis tasks
   it('handles worker termination', async () => {
     const transactions = buildDataset(3);
 
