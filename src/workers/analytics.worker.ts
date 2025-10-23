@@ -14,7 +14,19 @@ type AnalyticsSummary = {
   generatedAt: number;
 };
 
-type AnalyticsResponse = { type: 'result'; summary: AnalyticsSummary };
+type AnalyticsResponse =
+  | {
+      type: 'partial';
+      summary: AnalyticsSummary;
+      processed: number;
+      total: number;
+    }
+  | {
+      type: 'complete';
+      summary: AnalyticsSummary;
+      processed: number;
+      total: number;
+    };
 
 let currentJobToken = 0;
 let shouldCancel = false;
@@ -42,7 +54,7 @@ self.addEventListener('message', async (event: MessageEvent<AnalyticsRequest>) =
   const jobToken = currentJobToken;
   shouldCancel = false;
 
-  const { transactions, chunkSize = 250 } = data;
+  const { transactions, chunkSize = 1000 } = data;
   const summary: AnalyticsSummary = {
     totalRisk: 0,
     highRiskTransactions: 0,
@@ -51,7 +63,10 @@ self.addEventListener('message', async (event: MessageEvent<AnalyticsRequest>) =
     generatedAt: Date.now(),
   };
 
-  for (let index = 0; index < transactions.length; index += 1) {
+  const total = transactions.length;
+  const effectiveChunkSize = Math.max(1, chunkSize);
+
+  for (let index = 0; index < total; index += 1) {
     if (shouldCancel || jobToken !== currentJobToken) {
       return;
     }
@@ -69,8 +84,26 @@ self.addEventListener('message', async (event: MessageEvent<AnalyticsRequest>) =
     summary.patterns[transaction.id] = patternScore;
     summary.anomalies[transaction.id] = anomalyScore;
 
-    if ((index + 1) % chunkSize === 0) {
-      await wait(0);
+    const processed = index + 1;
+    const reachedChunkBoundary =
+      processed % effectiveChunkSize === 0 || processed === total;
+
+    if (reachedChunkBoundary) {
+      if (shouldCancel || jobToken !== currentJobToken) {
+        return;
+      }
+
+      summary.generatedAt = Date.now();
+
+      if (processed < total) {
+        self.postMessage({
+          type: 'partial',
+          summary,
+          processed,
+          total,
+        } satisfies AnalyticsResponse);
+        await wait(0);
+      }
     }
   }
 
@@ -80,7 +113,12 @@ self.addEventListener('message', async (event: MessageEvent<AnalyticsRequest>) =
 
   summary.generatedAt = Date.now();
 
-  self.postMessage({ type: 'result', summary } satisfies AnalyticsResponse);
+  self.postMessage({
+    type: 'complete',
+    summary,
+    processed: total,
+    total,
+  } satisfies AnalyticsResponse);
 });
 
 const calculateRiskFactors = (

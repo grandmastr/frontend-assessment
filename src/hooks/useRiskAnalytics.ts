@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Transaction } from '../types/transaction';
 
+const ANALYTICS_CHUNK_SIZE = 1000;
+
 export interface AnalyticsSummary {
   totalRisk: number;
   highRiskTransactions: number;
@@ -9,7 +11,19 @@ export interface AnalyticsSummary {
   generatedAt: number;
 }
 
-type AnalyticsWorkerMessage = { type: 'result'; summary: AnalyticsSummary };
+type AnalyticsWorkerMessage =
+  | {
+      type: 'partial';
+      summary: AnalyticsSummary;
+      processed: number;
+      total: number;
+    }
+  | {
+      type: 'complete';
+      summary: AnalyticsSummary;
+      processed: number;
+      total: number;
+    };
 
 type AnalyticsWorkerRequest =
   | { type: 'analyze'; transactions: Transaction[]; chunkSize?: number }
@@ -43,7 +57,7 @@ export const useRiskAnalytics = ({
 
   useEffect(() => {
     const worker = new Worker(
-      new URL('../workers/analytics.ts', import.meta.url),
+      new URL('../workers/analytics.worker.ts', import.meta.url),
       {
         type: 'module',
       }
@@ -53,13 +67,17 @@ export const useRiskAnalytics = ({
 
     const handleMessage = (event: MessageEvent<AnalyticsWorkerMessage>) => {
       const payload = event.data;
-      if (payload.type !== 'result') {
+
+      if (payload.type === 'partial') {
+        setRiskAnalytics(payload.summary);
         return;
       }
 
-      setRiskAnalytics(payload.summary);
-      setIsAnalyzing(false);
-      onComplete?.();
+      if (payload.type === 'complete') {
+        setRiskAnalytics(payload.summary);
+        setIsAnalyzing(false);
+        onComplete?.();
+      }
     };
 
     worker.addEventListener('message', handleMessage);
@@ -97,6 +115,7 @@ export const useRiskAnalytics = ({
       analyticsWorkerRef.current?.postMessage({
         type: 'analyze',
         transactions: transactions,
+        chunkSize: ANALYTICS_CHUNK_SIZE,
       } satisfies AnalyticsWorkerRequest);
     }, debounceMs);
 
