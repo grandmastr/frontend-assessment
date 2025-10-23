@@ -1,4 +1,4 @@
-# FinTech Dashboard - Frontend Assessment Technical Report
+# FinTech Dashboard - Frontend Assessment Technical Optimization Report
 
 ## Summary
 The app froze on first paint and kept burning CPU and memory. Root causes: a synchronous 10k data seed during mount, pairwise risk analysis on the main thread, and a monolithic context that triggered full rerenders. I moved generation and analytics into Web Workers, added list virtualization, replaced unsafe search highlighting, debounced expensive work, and split the Dashboard into focused hooks and presentational components. The UI now renders immediately and stays responsive while data streams in. The main thread has free time again.
@@ -73,6 +73,13 @@ The original UI blocked users with heavy work on mount, then made core tasks har
 - Heap growth from caches and intervals was eliminated by removing global snapshots and cleaning up workers.
 - Keystroke latency in search dropped by roughly 120 ms due to debouncing and the new normalizer.
 - Scrolling stays smooth because the list is virtualized and row work is stable.
+
+### Transaction generator benchmark (100k)
+- Bench harness: vitest bench (tinybench) with a stubbed wait() and mocked Worker globals. This computes in under 1s.
+- Scenario: init -> seed -> batched generation in the worker until done, BATCH_SIZE=5000, TOTAL=100000.
+- How to run: `yarn bench:transactions100k` (or `yarn bench`).
+- Output: logs a single line like "Generated 100000 records in <ms> ms"; use for relative regressions across commits.
+- Guardrail: fails if fewer than TOTAL records are emitted (asserts count).
 
 ## Evidence
 All before and after screenshots, plus a short scroll video that demonstrates the new and improved scroll optimizations by showing the frame rates while running on a 100Hz display, are here:

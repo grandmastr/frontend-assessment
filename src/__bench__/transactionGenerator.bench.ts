@@ -1,4 +1,17 @@
 import { bench, beforeAll, afterAll, expect, vi } from 'vitest';
+/**
+ * Benchmark: transactionGenerator (100k)
+ * What it measures: end-to-end generation in the Web Worker (seed + batched messages)
+ * from init to final "done" without main-thread work. Uses vitest bench (tinybench)
+ * and stubs self.postMessage + mocks wait() to 0 for deterministic runs.
+ *
+ * How to run:
+ *   - yarn bench:transactions100k
+ *   - or: yarn bench (runs all benches)
+ *
+ * Outputs: logs a single line, e.g. "Generated 100000 records in <ms> ms".
+ * Use this for relative comparisons between commits to catch regressions.
+ */
 
 vi.mock('../helpers/wait', () => ({
   __esModule: true,
