@@ -1,51 +1,4 @@
-import {
-  addDays,
-  differenceInDays,
-  endOfMonth,
-  format,
-  formatDistanceToNow,
-  isValid,
-  parseISO,
-  startOfMonth,
-  subDays,
-} from 'date-fns';
-
-export const formatTransactionDate = (date: Date): string => {
-  return format(date, 'PPpp');
-};
-
-export const getDateRange = (months: number = 1) => {
-  const now = new Date();
-  return {
-    start: startOfMonth(subDays(now, months * 30)),
-    end: endOfMonth(addDays(now, 7)),
-  };
-};
-
-export const parseDate = (dateString: string) => {
-  const parsed = parseISO(dateString);
-  return isValid(parsed) ? parsed : new Date();
-};
-
-export const getRelativeTime = (date: Date): string => {
-  return formatDistanceToNow(date, { addSuffix: true });
-};
-
-export const daysBetween = (start: Date, end: Date): number => {
-  return differenceInDays(end, start);
-};
-
-export const generateDateArray = (start: Date, end: Date): Date[] => {
-  const dates: Date[] = [];
-  let current = start;
-
-  while (current <= end) {
-    dates.push(current);
-    current = addDays(current, 1);
-  }
-
-  return dates;
-};
+import { format } from 'date-fns';
 
 export const formatCurrency = (amount: number, locale: string = 'en-US') => {
   return new Intl.NumberFormat(locale, {
@@ -56,9 +9,6 @@ export const formatCurrency = (amount: number, locale: string = 'en-US') => {
   }).format(amount);
 };
 
-export const formatNumber = (num: number, locale: string = 'en-US') => {
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(num);
+export const formatDateTime = (date: Date): string => {
+  return format(date, "EEEE, MMMM do, yyyy 'at' HH:mm");
 };

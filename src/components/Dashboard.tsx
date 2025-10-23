@@ -1,15 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { TransactionList } from './TransactionList';
-import { SearchBar } from './SearchBar';
-import { Stats } from './Stats';
-import { FilterControls } from './FilterControls';
-import { TransactionDetailModal } from './TransactionDetailModal';
+import { LoadingSpinner } from './ui/LoadingSpinner';
+import { DashboardLayout } from './layout/DashboardLayout';
+import { DashboardHeader } from './layout/DashboardHeader';
+import { FilterBar } from './filters/FilterBar';
+import { TransactionTable } from './transactions/TransactionTable';
+import { TransactionDetailSheet } from './transactions/TransactionDetailSheet';
+import { Stats } from './stats/Stats.tsx';
 import { useUserContext } from '../contexts/UserContext';
 import { useTransactionGenerator } from '../hooks/useTransactionGenerator';
 import { useRiskAnalytics } from '../hooks/useRiskAnalytics';
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
 import { useTransactionSelection } from '../hooks/useTransactionSelection';
-import { FilterOptions } from '../types/transaction';
+import {
+  FilterOptions,
+  Transaction,
+  TransactionSummary,
+} from '../types/transaction';
 
 const MIN_ANALYTICS_SIZE = 500;
 const ANALYTICS_DEBOUNCE_MS = 250;
@@ -59,13 +65,12 @@ export const Dashboard: React.FC = () => {
     scheduleNextBatchRef.current?.();
   }, []);
 
-  const { transactions, summary, loading, scheduleNextBatch } =
-    useTransactionGenerator({
-      initialTotal: INITIAL_TOTAL,
-      streamBatchTotal: STREAM_BATCH_TOTAL,
-      refreshInterval: actualRefreshRate,
-      onIdle: handleGeneratorIdle,
-    });
+  const { transactions, loading, scheduleNextBatch } = useTransactionGenerator({
+    initialTotal: INITIAL_TOTAL,
+    streamBatchTotal: STREAM_BATCH_TOTAL,
+    refreshInterval: actualRefreshRate,
+    onIdle: handleGeneratorIdle,
+  });
 
   scheduleNextBatchRef.current = scheduleNextBatch;
 
@@ -83,11 +88,47 @@ export const Dashboard: React.FC = () => {
     compactView: userPreferences.compactView,
   });
 
-  const { riskAnalytics, isAnalyzing } = useRiskAnalytics({
+  const { isAnalyzing, riskAnalytics } = useRiskAnalytics({
     transactions: filteredTransactions,
     minSize: MIN_ANALYTICS_SIZE,
     debounceMs: ANALYTICS_DEBOUNCE_MS,
   });
+
+  const calculateSummary = useCallback(
+    (txns: Transaction[]): TransactionSummary => {
+      const categoryCounts: Record<string, number> = {};
+      const result = txns.reduce(
+        (acc, txn) => {
+          const amount = txn.amount;
+          acc.totalAmount += Math.abs(amount);
+          acc.totalTransactions += 1;
+          if (amount > 0) {
+            acc.totalCredits += amount;
+          } else {
+            acc.totalDebits += Math.abs(amount);
+          }
+          categoryCounts[txn.category] =
+            (categoryCounts[txn.category] || 0) + 1;
+          return acc;
+        },
+        {
+          totalAmount: 0,
+          totalCredits: 0,
+          totalDebits: 0,
+          totalTransactions: 0,
+        }
+      );
+      return {
+        ...result,
+        avgTransactionAmount:
+          result.totalTransactions > 0
+            ? result.totalAmount / result.totalTransactions
+            : 0,
+        categoryCounts,
+      };
+    },
+    []
+  );
 
   isAnalyzingRef.current = isAnalyzing;
 
@@ -136,48 +177,57 @@ export const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="dashboard-loading">
-        <div className="loading-spinner"></div>
-        <p>Loading transactions...</p>
+      <div className="loading-container">
+        <LoadingSpinner size="lg" />
+        <p className="loading-text">Loading transactions...</p>
       </div>
     );
   }
 
-  return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>FinTech Dashboard</h1>
-      </div>
+  const headerComponent = (
+    <DashboardHeader onSearch={handleSearch} searchValue={searchTerm} />
+  );
 
-      <div className="dashboard-controls">
-        <SearchBar onSearch={handleSearch} />
-        <FilterControls
-          filters={filters}
-          categories={getUniqueCategories()}
-          onFilterChange={handleFilterChange}
-        />
-      </div>
+  const filtersComponent = (
+    <FilterBar
+      filters={filters}
+      onFiltersChange={handleFilterChange}
+      categories={getUniqueCategories()}
+      totalCount={transactions.length}
+      filteredCount={filteredTransactions.length}
+    />
+  );
 
+  const summary = calculateSummary(transactions);
+
+  const mainComponent = (
+    <>
       <Stats
-        isAnalyzing={isAnalyzing}
         summary={summary}
         filteredTransactions={filteredTransactions}
         txnCount={transactions.length}
-        highRiskTransactions={riskAnalytics?.highRiskTransactions}
+        isAnalyzing={isAnalyzing}
+        riskAnalytics={riskAnalytics}
       />
+      <TransactionTable
+        transactions={filteredTransactions}
+        onTransactionClick={handleTransactionClick}
+      />
+    </>
+  );
 
-      <div className="dashboard-content">
-        <TransactionList
-          transactions={filteredTransactions}
-          totalTransactions={transactions.length}
-          onTransactionClick={handleTransactionClick}
-        />
-      </div>
-
-      <TransactionDetailModal
+  return (
+    <>
+      <DashboardLayout
+        header={headerComponent}
+        filters={filtersComponent}
+        main={mainComponent}
+      />
+      <TransactionDetailSheet
         transaction={selectedTransaction}
+        isOpen={!!selectedTransaction}
         onClose={closeTransactionDetail}
       />
-    </div>
+    </>
   );
 };
