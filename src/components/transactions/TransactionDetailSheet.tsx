@@ -13,6 +13,7 @@ import styles from './TransactionDetailSheet.module.css';
 import { Transaction } from '../../types/transaction';
 import { Button } from '../ui/Button';
 import { formatCurrency, formatDateTime } from '../../utils/dateHelpers';
+import { VisuallyHidden } from '../ui/VisuallyHidden.tsx';
 
 interface TransactionDetailSheetProps {
   transaction: Transaction | null;
@@ -45,25 +46,26 @@ export const TransactionDetailSheet: React.FC<TransactionDetailSheetProps> = ({
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content className={styles.content}>
-          <Dialog.Title className={styles.title}>
-            Transaction Details
-          </Dialog.Title>
-          <Dialog.Description className={styles.description}>
-            Detailed information about this transaction
-          </Dialog.Description>
-
-          <div className={styles.header}>
-            <Dialog.Close asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={styles.closeButton}
-                aria-label="Close transaction details"
-              >
-                <X size={20} />
-              </Button>
-            </Dialog.Close>
-          </div>
+          <VisuallyHidden>
+            <Dialog.Title className={styles.title}>
+              Transaction Details
+            </Dialog.Title>
+            <Dialog.Description className={styles.description}>
+              Detailed information about this transaction
+            </Dialog.Description>
+            <div className={styles.header}>
+              <Dialog.Close asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={styles.closeButton}
+                  aria-label="Close transaction details"
+                >
+                  <X size={20} />
+                </Button>
+              </Dialog.Close>
+            </div>
+          </VisuallyHidden>
 
           <div className={styles.body}>
             <div className={styles.mainInfo}>
